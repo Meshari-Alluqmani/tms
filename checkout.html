@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Checkout · Transport Management System</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" type="image/png" href="icon-64.png">
+<script src="supabase.js"></script>
+<script src="app.js"></script>
+<script src="ar.js"></script>
+</head>
+<body class="app">
+<a class="skip" href="#main">Skip to main content</a>
+
+<header class="topbar">
+  <div class="container">
+    <a class="brand" href="index.html">
+      <img class="logo" src="logo.png" alt="" width="52" height="52">
+      <span>Transport Management System</span>
+    </a>
+    <nav class="topnav" aria-label="Main">
+      <a href="vehicles.html" data-when="member" hidden>My vehicles</a>
+      <a href="market.html">Cars for sale</a>
+    </nav>
+    <div class="tools">
+      <div data-display></div>
+      <div data-auth></div>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <div class="container" id="page">
+    <div class="card gate"><p>Loading…</p></div>
+  </div>
+</main>
+
+<footer class="footer">
+  <div class="container">
+    <p>Transport Management System · CS379 project prototype · No real payment is made.</p>
+  </div>
+</footer>
+
+<script>
+/* Checkout: a linear menu sequence (Module 5, "wizards"): one decision at a time,
+   4 steps, with Back on every step and a summary that is always visible.
+   Money, as in Saudi Arabia: here the buyer pays only a deposit (part of the car price) and our fee.
+   The rest of the price is paid through Absher's Dhamen account during the ownership transfer. */
+(function () {
+  var esc = TMS.esc;
+  var page = document.getElementById('page');
+  var id = TMS.param();
+
+  // a log-in is needed to buy; come back here afterwards
+  if (!TMS.user() && TMS.storageOK) { TMS.askLogin('checkout.html#' + id, 'Log in to buy this car. We will bring you back to the checkout.'); return; }
+  var user = TMS.user() || { name: 'Guest', email: 'guest@example.com' };
+
+  TMS.ready(start);
+  function start() {
+  var l = id ? TMS.findListing(id) : null;
+  if (!l || l.status !== 'live') {
+    page.innerHTML = '<div class="card gate"><h1>This car is not for sale</h1><p class="muted">It may have been sold or removed.</p>' +
+                     '<a class="btn" href="market.html">See cars for sale</a></div>';
+    return;
+  }
+  if (l.sellerEmail && l.sellerEmail === user.email) {
+    page.innerHTML = '<div class="card gate"><h1>This is your own listing</h1><p class="muted">You cannot buy a car you are selling.</p>' +
+                     '<a class="btn" href="vehicles.html">Go to My vehicles</a></div>';
+    return;
+  }
+
+  var name = l.year + ' ' + l.make + ' ' + l.model;
+  document.title = 'Checkout: ' + name + ' · Transport Management System';
+  var DELIVERY_FEE = TMS.DELIVERY_FEE, DEPOSIT = Math.min(TMS.DEPOSIT, l.price);
+  var days = TMS.workdays(3).map(TMS.fmtDay);
+  var state = { step: 1, delivery: 'deliver', day: days[0], time: '8–10 am', place: 'home', method: 'mada' };
+  var STEPS = ['Review', 'Delivery', 'Payment', 'Confirm'];
+  var METHODS = { mada: 'mada card', card: 'Visa or Mastercard', applepay: 'Apple Pay' };
+
+  function fee() { return state.delivery === 'deliver' ? DELIVERY_FEE : 0; }
+  function total() { return DEPOSIT + fee(); }            // paid now, on this site
+  function later() { return l.price - DEPOSIT; }          // paid later, through Absher (Dhamen)
+
+  function stepsNav() {
+    return '<ol class="steps-nav" aria-label="Checkout steps">' + STEPS.map(function (s, n) {
+      var k = n + 1, doneStep = k < state.step;
+      return '<li' + (k === state.step ? ' aria-current="step"' : '') + (doneStep ? ' class="is-done"' : '') + '>' +
+             '<span class="sn">' + (doneStep ? TMS.icon.tick : k) + '</span><span class="sl">' + s +
+             (doneStep ? '<span class="sr-only"> (done)</span>' : '') + '</span></li>';
+    }).join('') + '</ol>';
+  }
+
+  function summary() {
+    return '<aside class="card summary" aria-label="Order summary">' +
+      '<div class="sumcar">' + TMS.carPic(l) + '<div><b>' + esc(name) + '</b><p class="hint" style="margin:2px 0 0">' + TMS.km(l.km) + ' · ' + esc(l.city) + '</p></div></div>' +
+      '<dl class="sumlines">' +
+        '<dt>Car price</dt><dd>' + TMS.sar(l.price) + '</dd>' +
+        '<dt>Deposit now (part of the price)</dt><dd>' + TMS.sar(DEPOSIT) + '</dd>' +
+        '<dt>' + (state.delivery === 'deliver' ? 'Car check and delivery' : 'Pickup by you') + '</dt><dd>' + (fee() ? TMS.sar(fee()) : 'Free') + '</dd>' +
+        '<dt class="total">Pay now</dt><dd class="total">' + TMS.sar(total()) + '</dd>' +
+        '<dt>Pay later in Absher</dt><dd>' + TMS.sar(later()) + '</dd>' +
+      '</dl>' +
+      '<div class="safe">' + TMS.icon.shield + '<p>We hold your deposit. The rest goes into Absher’s Dhamen account, and the seller gets it only after the ownership transfer.</p></div>' +
+    '</aside>';
+  }
+
+  function radioCard(name, value, title, sub, feeText, checked) {
+    var rid = name + '-' + value;
+    return '<label class="optcard" for="' + rid + '"><input type="radio" name="' + name + '" id="' + rid + '" value="' + value + '"' + (checked ? ' checked' : '') + '>' +
+           '<span class="ot"><b>' + title + '</b><span>' + sub + '</span></span>' + (feeText ? '<span class="ofee">' + feeText + '</span>' : '') + '</label>';
+  }
+  function choice(name, value, idn, checked) {
+    return '<span class="choice"><input class="sr-only" type="radio" name="' + name + '" id="' + name + idn + '" value="' + value + '"' + (checked ? ' checked' : '') + '>' +
+           '<label for="' + name + idn + '">' + value + '</label></span>';
+  }
+
+  function stepBody() {
+    if (state.step === 1) return '<h2 id="stepTitle" tabindex="-1">Check the car</h2>' +
+      '<p class="muted">Make sure this is the car you want. You can go back at any step.</p>' +
+      '<dl class="facts">' +
+        '<dt>Car</dt><dd>' + esc(name) + '</dd>' +
+        '<dt>Kilometres</dt><dd class="num">' + TMS.km(l.km) + '</dd>' +
+        '<dt>City</dt><dd>' + esc(l.city) + '</dd>' +
+        '<dt>Seller</dt><dd>' + esc(l.seller) + '</dd>' +
+        '<dt>Accident</dt><dd>' + esc(TMS.accidentText(l)) + (l.accidentNotes ? ': ' + esc(l.accidentNotes) : '') + '</dd>' +
+        '<dt>History</dt><dd>' + (TMS.historyOf(l).length ? TMS.historyOf(l).length + ' records, ' + TMS.verifiedCount(l) + ' verified' : 'No records yet') + ' · <a href="car.html#' + esc(l.id) + '">see the records</a></dd>' +
+      '</dl>' +
+      '<div class="actions"><button type="button" class="btn" data-next>Continue to delivery</button>' +
+      '<a class="btn secondary" href="car.html#' + esc(l.id) + '">Back to the car</a></div>';
+
+    if (state.step === 2) return '<h2 id="stepTitle" tabindex="-1">How do you want the car?</h2>' +
+      '<fieldset><legend class="sr-only">Delivery</legend><div class="optcards">' +
+        radioCard('delivery', 'deliver', 'Deliver it to me', 'Our driver checks the car, then brings it to you once the ownership transfer in Absher is done.', TMS.sar(DELIVERY_FEE), state.delivery === 'deliver') +
+        radioCard('delivery', 'pickup', 'I’ll pick it up', 'Collect the car from the seller in ' + esc(l.city) + ' after the transfer. We send you the address.', 'Free', state.delivery === 'pickup') +
+      '</div></fieldset>' +
+      (state.delivery === 'deliver'
+        ? '<fieldset class="field"><legend>Delivery day</legend><div class="choicegrid">' +
+            days.map(function (d, n) { return choice('day', d, n, state.day === d); }).join('') + '</div>' +
+            '<p class="hint">We do not deliver on Friday and Saturday.</p></fieldset>' +
+          '<fieldset class="field"><legend>Delivery time</legend><div class="choicegrid">' +
+            ['8–10 am', '12–2 pm', '4–6 pm'].map(function (t, n) { return choice('time', t, n, state.time === t); }).join('') + '</div></fieldset>' +
+          '<div class="field"><label for="place">Deliver to</label><select id="place" name="place">' +
+            '<option value="home"' + (state.place === 'home' ? ' selected' : '') + '>Home</option>' +
+            '<option value="work"' + (state.place === 'work' ? ' selected' : '') + '>Work</option></select></div>'
+        : '') +
+      '<div class="actions"><button type="button" class="btn" data-next>Continue to payment</button>' +
+      '<button type="button" class="btn secondary" data-back>Back</button></div>';
+
+    if (state.step === 3) return '<h2 id="stepTitle" tabindex="-1">How do you want to pay?</h2>' +
+      '<fieldset><legend class="sr-only">Payment method</legend><div class="optcards">' +
+        radioCard('method', 'mada', 'mada', 'Saudi debit card', '', state.method === 'mada') +
+        radioCard('method', 'card', 'Visa or Mastercard', 'Credit or debit card', '', state.method === 'card') +
+        radioCard('method', 'applepay', 'Apple Pay', 'Confirm on your phone or watch', '', state.method === 'applepay') +
+      '</div></fieldset>' +
+      (state.method === 'applepay'
+        ? '<p class="note">You would confirm the payment with Face ID or your passcode on the next step.</p>'
+        : '<div class="cardform" aria-label="Card details">' +
+            '<div class="field wide"><label for="cardNo">Card number</label><input id="cardNo" type="text" value="4242 4242 4242 4242" readonly></div>' +
+            '<div class="field wide"><label for="cardName">Name on card</label><input id="cardName" type="text" value="DEMO CARD" readonly></div>' +
+            '<div class="field"><label for="cardExp">Expiry date</label><input id="cardExp" type="text" value="12 / 30" readonly></div>' +
+            '<div class="field"><label for="cardCvv">Security code</label><input id="cardCvv" type="text" value="•••" readonly></div>' +
+          '</div>' +
+          '<p class="note">Prototype: a demo card is filled in for you. Real card numbers cannot be typed here, and nothing is charged.</p>') +
+      '<div class="actions"><button type="button" class="btn" data-next>Continue to confirm</button>' +
+      '<button type="button" class="btn secondary" data-back>Back</button></div>';
+
+    return '<h2 id="stepTitle" tabindex="-1">Check and pay</h2>' +
+      '<dl class="facts">' +
+        '<dt>Car</dt><dd>' + esc(name) + '</dd>' +
+        '<dt>Delivery</dt><dd>' + (state.delivery === 'deliver'
+            ? 'Our driver brings it to your ' + state.place + ' on ' + esc(state.day) + ', ' + esc(state.time)
+            : 'You collect it from the seller in ' + esc(l.city)) + '</dd>' +
+        '<dt>Payment</dt><dd>' + METHODS[state.method] + '</dd>' +
+        '<dt>Pay now</dt><dd>' + TMS.sar(total()) + ' (deposit' + (fee() ? ' and car check with delivery' : '') + ')</dd>' +
+        '<dt>Pay later</dt><dd>' + TMS.sar(later()) + ' into Absher’s Dhamen account, when the seller starts the transfer</dd>' +
+      '</dl>' +
+      '<p class="error" id="payError" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg><span></span></p>' +
+      '<div class="actions"><button type="button" class="btn" data-pay>Pay ' + TMS.sar(total()) + ' now</button>' +
+      '<button type="button" class="btn secondary" data-back>Back</button></div>';
+  }
+
+  function render(focus) {
+    page.innerHTML =
+      '<p class="crumbs"><a href="market.html">Cars for sale</a> / <a href="car.html#' + esc(l.id) + '">' + esc(name) + '</a> / Checkout</p>' +
+      '<div class="pagehead"><div><p class="eyebrow">Checkout · step ' + state.step + ' of 4</p><h1>Buy the ' + esc(l.make + ' ' + l.model) + '</h1></div></div>' +
+      stepsNav() +
+      '<div class="cogrid"><section class="card costep" aria-labelledby="stepTitle">' + stepBody() + '</section>' + summary() + '</div>';
+    if (focus) { var h = document.getElementById('stepTitle'); if (h) h.focus(); }
+  }
+
+  page.addEventListener('change', function (e) {
+    var t = e.target;
+    if (t.name === 'delivery') { state.delivery = t.value; render(false); document.getElementById('delivery-' + t.value).focus(); }
+    if (t.name === 'method')   { state.method = t.value;   render(false); document.getElementById('method-' + t.value).focus(); }
+    if (t.name === 'day') state.day = t.value;
+    if (t.name === 'time') state.time = t.value;
+    if (t.name === 'place') state.place = t.value;
+  });
+
+  page.addEventListener('click', function (e) {
+    if (e.target.closest('[data-next]')) { state.step = Math.min(4, state.step + 1); render(true); window.scrollTo(0, 0); }
+    if (e.target.closest('[data-back]')) { state.step = Math.max(1, state.step - 1); render(true); window.scrollTo(0, 0); }
+    if (e.target.closest('[data-pay]')) pay();
+  });
+
+  function soldPage() {
+    page.innerHTML = '<div class="card gate"><h1>Sorry, this car was just sold</h1><p class="muted">Nothing was charged.</p>' +
+                     '<a class="btn" href="market.html">See other cars</a></div>';
+  }
+  var paying = false;
+  function pay() {
+    if (paying) return;
+    var btn = page.querySelector('[data-pay]'), box = document.getElementById('payError');
+    paying = true; btn.disabled = true; btn.textContent = 'Paying…'; box.hidden = true;
+    TMS.buy({ listing: l.id, fees: fee(),
+              method: state.method === 'applepay' ? 'Apple Pay' : state.method === 'card' ? 'Visa / Mastercard' : 'mada',
+              day: state.delivery === 'deliver' ? state.day : '', time: state.delivery === 'deliver' ? state.time : '',
+              place: state.delivery === 'deliver' ? (state.place === 'home' ? 'Home' : 'Work') : '' }).then(paid, function (err) {
+      paying = false;
+      if (err && err.sold) { soldPage(); return; }     // someone else bought it a moment ago
+      btn.disabled = false; btn.textContent = 'Pay ' + TMS.sar(total()) + ' now';
+      box.querySelector('span').textContent = (err && err.message) || 'The payment could not be saved. Nothing was charged. Try again.';
+      box.hidden = false;
+      btn.focus();
+    });
+  }
+  function paid(receipt) {
+    page.innerHTML =
+      '<p class="crumbs"><a href="market.html">Cars for sale</a> / Checkout</p>' +
+      (state.step = 5, stepsNav()) +
+      '<div class="card paid" role="status">' +
+        '<span class="big">' + TMS.icon.tick + '</span>' +
+        '<h1 tabindex="-1" id="paidTitle">Deposit received: the car is yours to buy</h1>' +
+        '<p><b>Receipt ' + esc(receipt) + '</b> · ' + TMS.sar(total()) + ' · ' + METHODS[state.method] + '</p>' +
+        '<p>Nobody else can buy this ' + esc(l.make + ' ' + l.model) + ' now. What happens next:</p>' +
+        '<ol class="nextsteps">' +
+          '<li>The seller starts the ownership transfer in Absher.</li>' +
+          '<li>You accept it in Absher and pay the rest, ' + TMS.sar(later()) + ', into the Dhamen account within 72 hours.</li>' +
+          '<li>' + (state.delivery === 'deliver'
+              ? 'Our driver checks the car and brings it to your ' + state.place + ' on ' + esc(state.day) + ', ' + esc(state.time) + '.'
+              : 'You collect the car from the seller in ' + esc(l.city) + '. We send you the address.') + '</li>' +
+        '</ol>' +
+        '<p class="hint">If the transfer does not happen, we give your deposit back.</p>' +
+        '<div class="actions"><a class="btn" href="market.html">Back to cars for sale</a>' +
+        '<a class="btn secondary" href="vehicles.html">My vehicles</a></div>' +
+      '</div>';
+    document.getElementById('paidTitle').focus();
+    window.scrollTo(0, 0);
+  }
+
+  render(false);
+  }
+})();
+</script>
+</body>
+</html>

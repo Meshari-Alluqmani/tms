@@ -1,0 +1,706 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Transport Management System</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" type="image/png" href="icon-64.png">
+<script src="supabase.js"></script>
+<script src="app.js"></script>
+<script src="ar.js"></script>
+</head>
+<body>
+<div class="landing">
+<a class="skip" href="#main">Skip to main content</a>
+
+<!-- Drawings reused by the pictures below -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="car" viewBox="0 0 48 31">
+    <path style="fill:var(--cb,#fff);stroke:var(--cs,#0f2f5c);stroke-width:1.1" d="M4 22.5V19.8C4 17.9 5.3 16.3 7.2 15.9L13.4 14.6L18.6 8.4C19.4 7.5 20.5 7 21.7 7H29.6C30.9 7 32.1 7.6 32.9 8.6L37.9 14.6L41.6 15.3C43.6 15.7 45 17.4 45 19.4V22.5C45 23.6 44.1 24.5 43 24.5H6C4.9 24.5 4 23.6 4 22.5Z"/>
+    <path style="fill:var(--cg,#b7d8fb)" d="M15.6 14.4L19.9 9.4C20.4 8.8 21.1 8.5 21.9 8.5H24.6V14.4Z"/>
+    <path style="fill:var(--cg,#b7d8fb)" d="M26.4 8.5H29.4C30.2 8.5 30.9 8.8 31.4 9.4L35.6 14.4H26.4Z"/>
+    <circle style="fill:var(--cs,#0f2f5c)" cx="13.5" cy="24.5" r="4.4"/>
+    <circle style="fill:var(--cs,#0f2f5c)" cx="36" cy="24.5" r="4.4"/>
+    <circle style="fill:var(--cg,#b7d8fb)" cx="13.5" cy="24.5" r="1.7"/>
+    <circle style="fill:var(--cg,#b7d8fb)" cx="36" cy="24.5" r="1.7"/>
+  </symbol>
+  <symbol id="tick" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="cross" viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></symbol>
+  <symbol id="city" viewBox="0 0 480 182">
+    <g fill="#a6cdf7"><rect x="0" y="70" width="46" height="112"/><rect x="52" y="36" width="34" height="146"/><rect x="92" y="90" width="50" height="92"/>
+      <path d="M150 182V24l17-24 17 24v158z"/><rect x="192" y="60" width="40" height="122"/><rect x="238" y="98" width="56" height="84"/>
+      <rect x="300" y="46" width="44" height="136"/><rect x="350" y="80" width="60" height="102"/><rect x="416" y="32" width="38" height="150"/><rect x="458" y="90" width="22" height="92"/></g>
+    <g fill="#cfe5fd"><rect x="160" y="32" width="14" height="6"/><rect x="160" y="48" width="14" height="6"/><rect x="160" y="64" width="14" height="6"/><rect x="160" y="80" width="14" height="6"/>
+      <rect x="60" y="50" width="18" height="6"/><rect x="60" y="66" width="18" height="6"/><rect x="60" y="82" width="18" height="6"/><rect x="200" y="74" width="24" height="6"/><rect x="200" y="90" width="24" height="6"/></g>
+  </symbol>
+  <symbol id="road" viewBox="0 0 480 78">
+    <rect width="480" height="8" fill="#7fb6f0"/><rect y="8" width="480" height="70" fill="#174a8c"/>
+    <g fill="#fff" opacity=".85"><rect x="6" y="66" width="26" height="4"/><rect x="58" y="66" width="26" height="4"/><rect x="110" y="66" width="26" height="4"/><rect x="162" y="66" width="26" height="4"/><rect x="214" y="66" width="26" height="4"/><rect x="266" y="66" width="26" height="4"/><rect x="318" y="66" width="26" height="4"/><rect x="370" y="66" width="26" height="4"/><rect x="422" y="66" width="26" height="4"/></g>
+  </symbol>
+  <symbol id="bigcar" viewBox="0 0 480 340">
+    <clipPath id="frontWin"><path d="M15.6 14.4L19.9 9.4C20.4 8.8 21.1 8.5 21.9 8.5H24.6V14.4Z"/></clipPath>
+    <g transform="translate(264 172) scale(-5.2 5.2)"><path fill="#fff" stroke="#0f2f5c" stroke-width=".55" d="M4 22.5V19.8C4 17.9 5.3 16.3 7.2 15.9L13.4 14.6L18.6 8.4C19.4 7.5 20.5 7 21.7 7H29.6C30.9 7 32.1 7.6 32.9 8.6L37.9 14.6L41.6 15.3C43.6 15.7 45 17.4 45 19.4V22.5C45 23.6 44.1 24.5 43 24.5H6C4.9 24.5 4 23.6 4 22.5Z"/>
+      <path fill="#b7d8fb" d="M15.6 14.4L19.9 9.4C20.4 8.8 21.1 8.5 21.9 8.5H24.6V14.4Z"/><path fill="#b7d8fb" d="M26.4 8.5H29.4C30.2 8.5 30.9 8.8 31.4 9.4L35.6 14.4H26.4Z"/><g clip-path="url(#frontWin)" fill="#174a8c"><circle cx="21.3" cy="11.2" r="1.7"/><path d="M17.9 14.6c0-1.8 1.5-2.4 3.4-2.4s3.4.6 3.4 2.4z"/></g><path d="M25.5 15.2v7" stroke="#b7d8fb" stroke-width=".45"/>
+      <rect x="4.7" y="17.5" width="2.4" height="1.5" rx=".5" fill="#9a5b00"/>
+      <rect x="43.1" y="17.6" width="1.4" height="1.8" rx=".4" fill="#b42318"/>
+      <circle cx="13.5" cy="24.5" r="4.4" fill="#0f2f5c"/><circle cx="36" cy="24.5" r="4.4" fill="#0f2f5c"/>
+      <circle cx="13.5" cy="24.5" r="1.8" fill="#b7d8fb"/><circle cx="36" cy="24.5" r="1.8" fill="#b7d8fb"/></g>
+  </symbol>
+  <symbol id="parkedcar" viewBox="0 0 480 340">
+    <g transform="translate(113.2 196.6) scale(4.2)"><path fill="#fff" stroke="#0f2f5c" stroke-width=".55" d="M4 22.5V19.8C4 17.9 5.3 16.3 7.2 15.9L13.4 14.6L18.6 8.4C19.4 7.5 20.5 7 21.7 7H29.6C30.9 7 32.1 7.6 32.9 8.6L37.9 14.6L41.6 15.3C43.6 15.7 45 17.4 45 19.4V22.5C45 23.6 44.1 24.5 43 24.5H6C4.9 24.5 4 23.6 4 22.5Z"/>
+      <path fill="#b7d8fb" d="M15.6 14.4L19.9 9.4C20.4 8.8 21.1 8.5 21.9 8.5H24.6V14.4Z"/><path fill="#b7d8fb" d="M26.4 8.5H29.4C30.2 8.5 30.9 8.8 31.4 9.4L35.6 14.4H26.4Z"/><path d="M25.5 15.2v7" stroke="#b7d8fb" stroke-width=".45"/>
+      <rect x="4.7" y="17.5" width="2.4" height="1.5" rx=".5" fill="#9a5b00"/>
+      <rect x="43.1" y="17.6" width="1.4" height="1.8" rx=".4" fill="#b42318"/>
+      <circle cx="13.5" cy="24.5" r="4.4" fill="#0f2f5c"/><circle cx="36" cy="24.5" r="4.4" fill="#0f2f5c"/>
+      <circle cx="13.5" cy="24.5" r="1.8" fill="#b7d8fb"/><circle cx="36" cy="24.5" r="1.8" fill="#b7d8fb"/></g>
+  </symbol>
+  <symbol id="house" viewBox="0 0 240 150">
+    <rect x="6" y="22" width="228" height="128" fill="#f5faff"/>
+    <rect x="0" y="14" width="240" height="12" fill="#dcecfd"/>
+    <path d="M0 16 l8 -10 l8 10 l8 -10 l8 10 l8 -10 l8 10 l8 -10 l8 10 l8 -10 l8 10 l8 -10 l8 10 l8 -10 l8 10 l8 -10 l8 10 l8 -10 l8 10 l8 -10 l8 10 l8 -10 l8 10 l8 -10 l8 10 l8 -10 l8 10 l8 -10 l8 10 l8 -10 l8 10 z" fill="#a6cdf7"/>
+    <rect x="6" y="34" width="228" height="4" fill="#dcecfd"/>
+    <path d="M96 92V64a15 15 0 0 1 30 0v28z" fill="#7fb6f0"/>
+    <path d="M184 92V64a15 15 0 0 1 30 0v28z" fill="#7fb6f0"/>
+    <path d="M14 150V98a20 20 0 0 1 40 0v52z" fill="#174a8c"/>
+    <rect x="33" y="96" width="2" height="54" fill="#0f2f5c"/>
+  </symbol>
+  <symbol id="palm" viewBox="0 0 80 110">
+    <path d="M37 110C39 80 35 52 41 30h5c-4 22 0 50 0 80z" fill="#7fb6f0"/>
+    <g fill="#5a9fe8">
+      <path d="M44 30C30 18 12 20 2 32c14-6 28-4 42 0z"/><path d="M44 30C58 16 74 18 80 30c-14-6-24-2-36 3z"/>
+      <path d="M44 30C36 12 26 4 14 2c12 8 20 18 28 30z"/><path d="M44 30C52 12 62 4 74 4c-12 8-20 18-28 28z"/>
+      <path d="M44 30c-4 10-14 22-24 28 10-12 16-20 22-28z"/><path d="M44 30c6 12 18 20 26 26-12-10-20-18-24-26z"/>
+    </g>
+  </symbol>
+  <symbol id="person" viewBox="0 0 30 92">
+    <circle cx="15" cy="10" r="10" style="fill:var(--pf,#174a8c)"/>
+    <path d="M2 92V37a13 13 0 0 1 26 0v55z" style="fill:var(--pf,#174a8c)"/>
+  </symbol>
+</svg>
+
+<!-- ============ TOP BAR ============ -->
+<header class="topbar">
+  <div class="container">
+    <a class="brand" href="index.html">
+      <img class="logo" src="logo.png" alt="" width="52" height="52">
+      <span>Transport Management System</span>
+    </a>
+    <nav class="topnav" aria-label="Main">
+      <a class="opt-nav" href="#how">How it works</a>
+      <a class="opt-nav" href="#prices">Prices</a>
+      <a href="market.html">Cars for sale</a>
+    </nav>
+    <div class="tools">
+      <div data-display></div>
+      <div data-auth="landing"><a class="btn" href="login.html">Log in</a></div>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- ============ 1. HERO ============
+       The left side stays still. The pictures on the right change every 4 seconds
+       (5 slides: the story of one car, then selling it). Users can pick a slide or press Pause. -->
+  <section class="hero" aria-labelledby="heroTitle">
+    <div class="container">
+      <div class="hero-copy">
+        <p class="eyebrow">For car owners and company fleets in Saudi Arabia</p>
+        <h1 id="heroTitle">We remind you. <span class="accent">Then we handle it.</span></h1>
+        <p class="lead">Istimara, Fahas, insurance and service dates in one place. When Fahas or a service is due, our driver collects your car, gets the job done and brings it back. We renew insurance online, and remind you to renew the Istimara in Absher. When you sell, the car's full history goes with it.</p>
+        <div class="actions" data-when="guest">
+          <a class="btn" href="signup.html#individual">Start with my car</a>
+          <a class="btn secondary" href="signup.html#business">I manage a fleet</a>
+        </div>
+        <div class="actions" data-when="member" hidden>
+          <a class="btn" href="vehicles.html">Go to My vehicles</a>
+          <a class="btn secondary" href="market.html">See cars for sale</a>
+        </div>
+        <div class="actions" data-when="staff" hidden>
+          <a class="btn" href="admin.html">Go to the Admin page</a>
+          <a class="btn secondary" href="market.html">See cars for sale</a>
+        </div>
+        <ul class="ticks">
+          <li><svg aria-hidden="true"><use href="#tick"/></svg>Reminders before every date</li>
+          <li><svg aria-hidden="true"><use href="#tick"/></svg>Driver pickup and return</li>
+          <li><svg aria-hidden="true"><use href="#tick"/></svg>Sell with a verified history</li>
+        </ul>
+      </div>
+
+      <div class="hero-visual" role="region" aria-roledescription="slideshow" aria-label="How it works, in 5 pictures">
+        <div class="scene-stack" aria-hidden="true">
+
+          <!-- SLIDE 1: the reminder arrives -->
+          <div class="scene active">
+            <div class="scene-card">
+              <svg class="ill" viewBox="0 0 480 340">
+                <rect width="480" height="340" fill="#cfe5fd"/>
+                <circle cx="70" cy="74" r="30" fill="#fff"/>
+                <use href="#city" x="0" y="80" width="480" height="182"/>
+                <use href="#road" x="0" y="262" width="480" height="78"/>
+                <g stroke="#fff" stroke-width="4" stroke-linecap="round" opacity=".9"><path d="M6 230h18M0 244h24M8 258h14"/></g>
+                <g class="drive"><use href="#bigcar" x="0" y="0" width="480" height="340"/></g>
+              </svg>
+            </div>
+            <div class="phone">
+              <p class="ph-label"><svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>Reminder</p>
+              <p class="ph-car">Kia K5</p>
+              <p class="ph-plate">A J K · 2847</p>
+              <div class="ph-due"><span>Fahas expires</span><span class="pill red">in 12 days</span></div>
+              <div class="ph-btns">
+                <span class="btn">Handle it for me</span>
+                <span class="btn secondary">I'll do it myself</span>
+              </div>
+            </div>
+            <div class="chip-done">
+              <span class="ok amber"><svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></span>
+              <span><b>Reminder sent</b><br><span class="muted">12 days before the date</span></span>
+            </div>
+          </div>
+
+          <!-- SLIDE 2: the driver collects the car from home -->
+          <div class="scene">
+            <div class="scene-card">
+              <svg class="ill" viewBox="0 0 480 340">
+                <rect width="480" height="340" fill="#cfe5fd"/>
+                <circle cx="214" cy="70" r="24" fill="#fff"/>
+                <use href="#house" x="0" y="137" width="200" height="125"/>
+                <use href="#palm" x="188" y="160" width="74" height="102"/>
+                <rect y="262" width="480" height="78" fill="#e6f2fe"/>
+                <rect y="262" width="480" height="5" fill="#7fb6f0"/>
+                <use href="#person" x="70" y="226" width="30" height="92"/>
+                <g fill="none" stroke="#9a5b00" stroke-width="3" stroke-linecap="round"><circle cx="108" cy="276" r="5"/><path d="M112 280l6 6M115 283l-3 3"/></g>
+                <use href="#parkedcar" x="0" y="0" width="480" height="340"/>
+              </svg>
+            </div>
+            <div class="phone">
+              <p class="ph-label"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Booking</p>
+              <p class="ph-car">Kia K5</p>
+              <p class="ph-plate">A J K · 2847</p>
+              <div class="ph-due"><span>Driver booked</span><span class="pill green">Confirmed</span></div>
+              <p class="ph-note"><b>Pickup:</b> <span data-day="0">Sun</span>, 8–10 am<br><b>Place:</b> Home</p>
+              <div class="ph-btns"><span class="btn secondary">Change time</span></div>
+            </div>
+            <div class="chip-done">
+              <span class="ok"><svg><use href="#tick"/></svg></span>
+              <span><b>Driver at your door</b><br><span class="muted">Pickup <span data-day="0">Sun</span>, 8–10 am</span></span>
+            </div>
+          </div>
+
+          <!-- SLIDE 3: the job is done at the Fahas centre -->
+          <div class="scene">
+            <div class="scene-card">
+              <svg class="ill" viewBox="0 0 480 340">
+                <rect width="480" height="340" fill="#cfe5fd"/>
+                <rect x="0" y="104" width="300" height="158" fill="#f5faff"/>
+                <rect x="0" y="90" width="300" height="20" fill="#174a8c"/>
+                <rect x="16" y="96" width="44" height="8" rx="2" fill="#fff"/>
+                <rect x="66" y="96" width="26" height="8" rx="2" fill="#b7d8fb"/>
+                <rect x="20" y="128" width="236" height="134" fill="#7fb6f0"/>
+                <rect x="20" y="124" width="236" height="10" fill="#5a9fe8"/>
+                <rect x="84" y="176" width="6" height="86" fill="#174a8c"/>
+                <rect x="238" y="176" width="6" height="86" fill="#174a8c"/>
+                <use href="#car" x="90" y="148" width="150" height="97"/>
+                <rect x="84" y="238" width="160" height="7" fill="#0f2f5c"/>
+                <use href="#person" x="34" y="184" width="26" height="78" style="--pf:#0f2f5c"/>
+                <rect x="52" y="214" width="14" height="18" rx="2" fill="#fff" stroke="#0f2f5c" stroke-width="2"/>
+                <rect x="55" y="220" width="8" height="2" fill="#0f2f5c"/><rect x="55" y="225" width="6" height="2" fill="#0f2f5c"/>
+                <circle cx="168" cy="150" r="16" fill="#18744a"/>
+                <path d="M160.5 150l5.5 5.5 10-11" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>
+                <use href="#road" x="0" y="262" width="480" height="78"/>
+              </svg>
+            </div>
+            <div class="phone">
+              <p class="ph-label"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Live update</p>
+              <p class="ph-car">Kia K5</p>
+              <p class="ph-plate">A J K · 2847</p>
+              <div class="ph-due">
+                <span>Fahas</span><span class="pill green">Passed</span>
+                <span>Oil service</span><span class="pill green">Done</span>
+              </div>
+              <p class="ph-note">Your car is on its way back.</p>
+            </div>
+            <div class="chip-done">
+              <span class="ok"><svg><use href="#tick"/></svg></span>
+              <span><b>Fahas passed</b><br><span class="muted">Oil changed too</span></span>
+            </div>
+          </div>
+
+          <!-- SLIDE 4: the car is back home -->
+          <div class="scene">
+            <div class="scene-card">
+              <svg class="ill" viewBox="0 0 480 340">
+                <rect width="480" height="340" fill="#cfe5fd"/>
+                <circle cx="214" cy="84" r="24" fill="#fff"/>
+                <use href="#house" x="0" y="137" width="200" height="125"/>
+                <use href="#palm" x="188" y="160" width="74" height="102"/>
+                <rect y="262" width="480" height="78" fill="#e6f2fe"/>
+                <rect y="262" width="480" height="5" fill="#7fb6f0"/>
+                <use href="#person" x="46" y="226" width="30" height="92" style="--pf:#3b7fd0"/>
+                <use href="#person" x="94" y="226" width="30" height="92"/>
+                <g fill="none" stroke="#9a5b00" stroke-width="3" stroke-linecap="round"><circle cx="84" cy="272" r="5"/><path d="M88 276l5 5M91 279l-3 3"/></g>
+                <g class="arrive"><use href="#parkedcar" x="0" y="0" width="480" height="340"/></g>
+                <circle cx="214" cy="206" r="16" fill="#18744a"/>
+                <path d="M206.5 206l5.5 5.5 10-11" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="phone">
+              <p class="ph-label"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Done</p>
+              <p class="ph-car">Kia K5</p>
+              <p class="ph-plate">A J K · 2847</p>
+              <div class="ph-due"><span>Car returned</span><span class="pill green">1:30 pm</span></div>
+              <div class="ph-due"><span>Next: insurance</span><span class="pill blue">in 5 months</span></div>
+              <div class="ph-btns"><span class="btn secondary">View my vehicles</span></div>
+            </div>
+            <div class="chip-done">
+              <span class="ok"><svg><use href="#tick"/></svg></span>
+              <span><b>Car returned</b><br><span class="muted">Same day, 1:30 pm</span></span>
+            </div>
+          </div>
+
+          <!-- SLIDE 5: selling the car with its full history -->
+          <div class="scene">
+            <div class="scene-card">
+              <svg class="ill" viewBox="0 0 480 340">
+                <rect width="480" height="340" fill="#cfe5fd"/>
+                <circle cx="214" cy="70" r="24" fill="#fff"/>
+                <use href="#house" x="0" y="137" width="200" height="125"/>
+                <use href="#palm" x="188" y="160" width="74" height="102"/>
+                <rect y="262" width="480" height="78" fill="#e6f2fe"/>
+                <rect y="262" width="480" height="5" fill="#7fb6f0"/>
+                <rect x="84" y="236" width="6" height="82" fill="#0f2f5c"/>
+                <rect x="46" y="190" width="82" height="52" rx="4" fill="#fff" stroke="#174a8c" stroke-width="3"/>
+                <path d="M62 204h34l12 12-12 12H62z" fill="#174a8c"/>
+                <circle cx="70" cy="216" r="3.4" fill="#fff"/>
+                <use href="#parkedcar" x="0" y="0" width="480" height="340"/>
+                <path d="M226 168l17 6v13c0 11-7.5 18-17 22-9.5-4-17-11-17-22v-13z" fill="#18744a"/>
+                <path d="M218.5 188l5.5 5.5 10-11" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="phone">
+              <p class="ph-label"><svg viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.5"/></svg>For sale</p>
+              <p class="ph-car">Kia K5</p>
+              <p class="ph-plate">2022 · 51,240 km</p>
+              <div class="ph-due"><span>Price</span><span class="pill blue">SAR 68,000</span></div>
+              <div class="ph-due"><span>History</span><span class="pill green">Verified</span></div>
+              <div class="ph-btns"><span class="btn secondary">View listing</span></div>
+            </div>
+            <div class="chip-done">
+              <span class="ok"><svg><use href="#tick"/></svg></span>
+              <span><b>Listed for sale</b><br><span class="muted">Full history attached</span></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- what each picture shows -->
+        <div class="cap-stack">
+          <p class="cap active"><b>Reminder.</b> We remind you before each Istimara, Fahas, insurance and service date.</p>
+          <p class="cap" aria-hidden="true"><b>Pickup.</b> Busy? Press “Handle it for me” and our driver collects your car.</p>
+          <p class="cap" aria-hidden="true"><b>Job done.</b> The driver takes it to the Fahas centre and gets the job done.</p>
+          <p class="cap" aria-hidden="true"><b>Returned.</b> Your car comes back to you the same day.</p>
+          <p class="cap" aria-hidden="true"><b>For sale.</b> Selling? Press one button, type a price, and the full history goes with it.</p>
+        </div>
+
+        <!-- slideshow controls: pick a picture, or pause -->
+        <div class="slide-controls">
+          <div class="tabs" role="group" aria-label="Pictures">
+            <button type="button" class="tab active" aria-current="true" aria-label="Picture 1 of 5: Reminder"><span class="bar"><i></i></span>1</button>
+            <button type="button" class="tab" aria-label="Picture 2 of 5: Pickup"><span class="bar"><i></i></span>2</button>
+            <button type="button" class="tab" aria-label="Picture 3 of 5: Job done"><span class="bar"><i></i></span>3</button>
+            <button type="button" class="tab" aria-label="Picture 4 of 5: Returned"><span class="bar"><i></i></span>4</button>
+            <button type="button" class="tab" aria-label="Picture 5 of 5: For sale"><span class="bar"><i></i></span>5</button>
+          </div>
+          <button type="button" class="btn secondary pause" aria-pressed="false">
+            <svg class="i-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5v14M15 5v14"/></svg>
+            <svg class="i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5l12 7-12 7z"/></svg>
+            <span>Pause</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 2. THE PROBLEM: what a missed date costs ============ -->
+  <section class="section" id="problem">
+    <div class="container">
+      <div class="section-head">
+        <h2>One forgotten date can stop your car.</h2>
+        <p class="intro">Each renewal comes at a different time of year. It is easy to forget one, and the system will notice.</p>
+      </div>
+      <div class="pains">
+        <article class="card pain">
+          <svg class="ill art" viewBox="0 0 96 72" aria-hidden="true">
+            <rect width="96" height="72" rx="3" fill="#fdecea"/>
+            <path d="M50 22l36 18-18 12z" fill="#b42318" opacity=".18"/>
+            <rect x="14" y="17" width="5" height="45" fill="#174a8c"/>
+            <rect x="14" y="17" width="14" height="5" fill="#174a8c"/>
+            <path d="M26 12h22a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H26z" fill="#174a8c"/>
+            <circle cx="44" cy="19" r="3" fill="#b42318"/>
+            <use href="#car" x="52" y="38" width="38" height="25"/>
+            <rect x="8" y="63" width="82" height="2" fill="#174a8c" opacity=".3"/>
+          </svg>
+          <h3>No insurance? It is caught automatically.</h3>
+          <p>Since October 2023, cars without valid insurance are detected electronically and fined.</p>
+        </article>
+        <article class="card pain">
+          <svg class="ill art" viewBox="0 0 96 72" aria-hidden="true">
+            <rect width="96" height="72" rx="3" fill="#fdecea"/>
+            <rect x="16" y="11" width="46" height="50" rx="3" fill="#fff" stroke="#174a8c" stroke-width="2.5"/>
+            <rect x="24" y="21" width="30" height="4" fill="#b7d8fb"/>
+            <rect x="24" y="30" width="22" height="4" fill="#b7d8fb"/>
+            <rect x="24" y="39" width="26" height="4" fill="#b7d8fb"/>
+            <path d="M61 41v-5a8 8 0 0 1 16 0v5" fill="none" stroke="#b42318" stroke-width="4"/>
+            <rect x="55" y="40" width="28" height="22" rx="3" fill="#b42318"/>
+            <circle cx="69" cy="49" r="2.8" fill="#fff"/>
+            <rect x="68" y="50" width="2" height="6" fill="#fff"/>
+          </svg>
+          <h3>No Fahas, no Istimara.</h3>
+          <p>If your Fahas inspection has expired, you cannot renew your Istimara.</p>
+        </article>
+        <article class="card pain">
+          <svg class="ill art" viewBox="0 0 96 72" aria-hidden="true">
+            <rect width="96" height="72" rx="3" fill="#fdecea"/>
+            <rect x="14" y="14" width="48" height="48" rx="3" fill="#fff" stroke="#174a8c" stroke-width="2.5"/>
+            <rect x="14" y="14" width="48" height="12" fill="#174a8c"/>
+            <rect x="24" y="9" width="4" height="10" rx="2" fill="#174a8c"/>
+            <rect x="48" y="9" width="4" height="10" rx="2" fill="#174a8c"/>
+            <g fill="#b7d8fb">
+              <rect x="21" y="33" width="8" height="7"/><rect x="34" y="33" width="8" height="7"/><rect x="47" y="33" width="8" height="7"/>
+              <rect x="21" y="46" width="8" height="7"/><rect x="34" y="46" width="8" height="7"/>
+            </g>
+            <circle cx="70" cy="48" r="14" fill="#b42318"/>
+            <rect x="68" y="39" width="4" height="11" rx="2" fill="#fff"/>
+            <circle cx="70" cy="55" r="2.3" fill="#fff"/>
+          </svg>
+          <h3>Late Istimara costs you twice.</h3>
+          <p>Renew late and you pay a fine plus a late fee.</p>
+        </article>
+      </div>
+      <p class="pain-fix"><svg aria-hidden="true"><use href="#tick"/></svg>With us, every date is watched for you.</p>
+    </div>
+  </section>
+
+  <!-- ============ 3. WHY US: compared with reminder apps ============ -->
+  <section class="section alt" id="why">
+    <div class="container">
+      <div class="section-head">
+        <h2>Other apps remind you. We do it for you.</h2>
+        <p class="intro">A reminder still leaves the work to you: book, drive there, wait, and drive back.</p>
+      </div>
+      <div class="compare">
+        <div class="card them">
+          <h3>Reminder apps</h3>
+          <ul class="yesno">
+            <li><span class="yn yes"><svg aria-hidden="true"><use href="#tick"/></svg></span><span><span class="sr-only">Yes: </span>Remind you before the date</span></li>
+            <li><span class="yn no"><svg aria-hidden="true"><use href="#cross"/></svg></span><span><span class="sr-only">No: </span>You book the appointment</span></li>
+            <li><span class="yn no"><svg aria-hidden="true"><use href="#cross"/></svg></span><span><span class="sr-only">No: </span>You drive there and wait</span></li>
+            <li><span class="yn no"><svg aria-hidden="true"><use href="#cross"/></svg></span><span><span class="sr-only">No: </span>You drive back</span></li>
+            <li><span class="yn no"><svg aria-hidden="true"><use href="#cross"/></svg></span><span><span class="sr-only">No: </span>Nobody checks it was done</span></li>
+            <li><span class="yn no"><svg aria-hidden="true"><use href="#cross"/></svg></span><span><span class="sr-only">No: </span>No proof of the car's history when you sell</span></li>
+          </ul>
+        </div>
+        <div class="card us">
+          <p class="badge">Our system</p>
+          <h3>Transport Management System</h3>
+          <ul class="yesno">
+            <li><span class="yn yes"><svg aria-hidden="true"><use href="#tick"/></svg></span><span><span class="sr-only">Yes: </span>Remind you before the date</span></li>
+            <li><span class="yn yes"><svg aria-hidden="true"><use href="#tick"/></svg></span><span><span class="sr-only">Yes: </span>Book it with one button</span></li>
+            <li><span class="yn yes"><svg aria-hidden="true"><use href="#tick"/></svg></span><span><span class="sr-only">Yes: </span>Our driver takes the car and waits</span></li>
+            <li><span class="yn yes"><svg aria-hidden="true"><use href="#tick"/></svg></span><span><span class="sr-only">Yes: </span>Your car comes back to you</span></li>
+            <li><span class="yn yes"><svg aria-hidden="true"><use href="#tick"/></svg></span><span><span class="sr-only">Yes: </span>We check with you one week later</span></li>
+            <li><span class="yn yes"><svg aria-hidden="true"><use href="#tick"/></svg></span><span><span class="sr-only">Yes: </span>Sell with a verified history</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 4. HOW IT WORKS: 3 illustrated steps ============ -->
+  <section class="section" id="how">
+    <div class="container">
+      <div class="section-head">
+        <h2>Three steps. One button.</h2>
+        <p class="intro">The same for one car or a hundred.</p>
+      </div>
+      <ol class="how">
+        <li class="card step">
+          <div class="art-box">
+            <span class="n" aria-hidden="true">1</span>
+            <svg class="ill" viewBox="0 0 240 140" aria-hidden="true">
+              <rect x="84" y="8" width="72" height="126" rx="10" fill="#0f2f5c"/>
+              <rect x="90" y="20" width="60" height="104" rx="3" fill="#fff"/>
+              <use href="#car" x="98" y="30" width="44" height="29"/>
+              <rect x="98" y="66" width="44" height="15" rx="2" fill="#fff" stroke="#174a8c" stroke-width="1.6"/>
+              <rect x="102" y="71" width="13" height="5" fill="#174a8c"/>
+              <rect x="119" y="71" width="19" height="5" fill="#174a8c"/>
+              <rect x="98" y="90" width="44" height="6" fill="#b7d8fb"/>
+              <rect x="98" y="101" width="30" height="6" fill="#b7d8fb"/>
+              <circle cx="160" cy="30" r="17" fill="#174a8c" stroke="#f0f7ff" stroke-width="4"/>
+              <path d="M160 22v16M152 30h16" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <h3>Add your car once</h3>
+          <p>Type the plate and its four dates. Companies can add the whole fleet.</p>
+        </li>
+        <li class="card step">
+          <div class="art-box">
+            <span class="n" aria-hidden="true">2</span>
+            <svg class="ill" viewBox="0 0 240 140" aria-hidden="true">
+              <rect x="56" y="22" width="96" height="104" rx="3" fill="#fff" stroke="#174a8c" stroke-width="2.5"/>
+              <rect x="56" y="22" width="96" height="22" fill="#174a8c"/>
+              <rect x="74" y="14" width="6" height="16" rx="3" fill="#174a8c"/>
+              <rect x="128" y="14" width="6" height="16" rx="3" fill="#174a8c"/>
+              <g fill="#ddeeff">
+                <rect x="66" y="54" width="14" height="12"/><rect x="88" y="54" width="14" height="12"/><rect x="110" y="54" width="14" height="12"/><rect x="132" y="54" width="12" height="12"/>
+                <rect x="66" y="74" width="14" height="12"/><rect x="88" y="74" width="14" height="12"/><rect x="132" y="74" width="12" height="12"/>
+                <rect x="66" y="94" width="14" height="12"/><rect x="88" y="94" width="14" height="12"/><rect x="110" y="94" width="14" height="12"/>
+              </g>
+              <rect x="109" y="73" width="16" height="14" fill="#fdecea" stroke="#b42318" stroke-width="2"/>
+              <g transform="translate(150 46)">
+                <path d="M22 4a15 15 0 0 1 15 15v13l7 9H0l7-9V19A15 15 0 0 1 22 4z" fill="#9a5b00"/>
+                <circle cx="22" cy="46" r="5.5" fill="#9a5b00"/>
+                <path d="M-6 12a26 26 0 0 1 8-12M50 12a26 26 0 0 0-8-12" fill="none" stroke="#9a5b00" stroke-width="3" stroke-linecap="round"/>
+              </g>
+            </svg>
+          </div>
+          <h3>We remind you in time</h3>
+          <p>A reminder comes before each Istimara, Fahas, insurance or service date.</p>
+        </li>
+        <li class="card step">
+          <div class="art-box">
+            <span class="n" aria-hidden="true">3</span>
+            <svg class="ill" viewBox="0 0 240 140" aria-hidden="true">
+              <rect x="0" y="118" width="240" height="6" fill="#b7d8fb"/>
+              <circle cx="46" cy="58" r="11" fill="#174a8c"/>
+              <path d="M29 118V90a17 17 0 0 1 34 0v28z" fill="#174a8c"/>
+              <circle cx="66" cy="98" r="5" fill="none" stroke="#9a5b00" stroke-width="3"/>
+              <path d="M70 101l7 7M74 105l-3 3" stroke="#9a5b00" stroke-width="3" stroke-linecap="round"/>
+              <use href="#car" x="82" y="52" width="114" height="74"/>
+              <circle cx="196" cy="40" r="19" fill="#18744a"/>
+              <path d="M187 40l6.5 6.5L206 34" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <h3>Press “Handle it for me”</h3>
+          <p>A driver collects the car at the time you pick, gets the job done and brings it back. Prefer to do it yourself? We check with you a week later.</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ============ 5. BUY AND SELL with the full history ============ -->
+  <section class="section alt" id="sell">
+    <div class="container">
+      <div class="section-head">
+        <h2>Your car's history sells it.</h2>
+        <p class="intro">Every job we do is saved to your car's record. When it's time to sell, buyers see all of it.</p>
+      </div>
+      <div class="trade">
+        <article class="card">
+          <svg class="ill art" viewBox="0 0 300 120" aria-hidden="true">
+            <rect width="300" height="120" rx="3" fill="#ddeeff"/>
+            <rect y="100" width="300" height="20" fill="#b7d8fb"/>
+            <use href="#car" x="96" y="34" width="108" height="70"/>
+            <rect x="46" y="58" width="5" height="44" fill="#0f2f5c"/>
+            <rect x="22" y="30" width="54" height="34" rx="3" fill="#fff" stroke="#174a8c" stroke-width="2.5"/>
+            <path d="M32 39h22l8 8-8 8H32z" fill="#174a8c"/><circle cx="37" cy="47" r="2.4" fill="#fff"/>
+            <circle cx="236" cy="40" r="18" fill="#18744a"/>
+            <path d="M228 40l6 6 10-11" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <h3>Selling? One button, one price.</h3>
+          <ul class="checks">
+            <li><svg aria-hidden="true"><use href="#tick"/></svg>Press “Sell this car” and type your price. We fill in the rest.</li>
+            <li><svg aria-hidden="true"><use href="#tick"/></svg>Our team checks every listing before it goes public.</li>
+            <li><svg aria-hidden="true"><use href="#tick"/></svg>“Handle the sale for me”: our driver checks the car and delivers it after you transfer ownership in Absher.</li>
+          </ul>
+          <a class="btn" href="vehicles.html" data-when="member" hidden>Sell my car</a>
+          <a class="btn" href="signup.html#individual" data-when="guest">Create an account to sell</a>
+        </article>
+        <article class="card">
+          <svg class="ill art" viewBox="0 0 300 120" aria-hidden="true">
+            <rect width="300" height="120" rx="3" fill="#ddeeff"/>
+            <rect x="34" y="16" width="232" height="88" rx="4" fill="#fff" stroke="#174a8c" stroke-width="2.5"/>
+            <g fill="#18744a"><circle cx="58" cy="38" r="8"/><circle cx="58" cy="60" r="8"/></g>
+            <circle cx="58" cy="82" r="8" fill="#b7d8fb"/>
+            <path d="M54 38l3 3 5-6M54 60l3 3 5-6" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+            <g fill="#b7d8fb"><rect x="76" y="34" width="120" height="8" rx="2"/><rect x="76" y="56" width="96" height="8" rx="2"/><rect x="76" y="78" width="108" height="8" rx="2"/></g>
+            <g fill="#e5f3eb"><rect x="206" y="32" width="44" height="12" rx="2"/><rect x="206" y="54" width="44" height="12" rx="2"/></g>
+          </svg>
+          <h3>Buying? See the real history.</h3>
+          <ul class="checks">
+            <li><svg aria-hidden="true"><use href="#tick"/></svg>Records marked “Verified” were done by our drivers.</li>
+            <li><svg aria-hidden="true"><use href="#tick"/></svg>Pay safely: a small deposit holds the car, and the rest goes through Absher’s Dhamen account.</li>
+            <li><svg aria-hidden="true"><use href="#tick"/></svg>Choose “Deliver it to me” and our driver brings the car to you.</li>
+          </ul>
+          <a class="btn secondary" href="market.html">See cars for sale</a>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 6. PRICES: individual and company offers ============ -->
+  <section class="section" id="prices">
+    <div class="container">
+      <div class="section-head">
+        <h2>For one car or a whole fleet.</h2>
+        <p class="intro">Pick the account that fits you. You can switch later.</p>
+      </div>
+      <div class="plans">
+        <article class="card plan">
+          <svg class="ill plan-art" viewBox="0 0 160 56" aria-hidden="true">
+            <rect y="50" width="160" height="4" fill="#b7d8fb"/>
+            <use href="#car" x="40" y="4" width="80" height="52"/>
+          </svg>
+          <h3>Individuals and families</h3>
+          <p class="price">SAR 120 <span class="per">per driver job</span></p>
+          <ul class="checks">
+            <li><svg aria-hidden="true"><use href="#tick"/></svg>All four dates for every car you own</li>
+            <li><svg aria-hidden="true"><use href="#tick"/></svg>A reminder before each date</li>
+            <li><svg aria-hidden="true"><use href="#tick"/></svg>Driver pickup and return when you want it</li>
+            <li><svg aria-hidden="true"><use href="#tick"/></svg>Sell your car with its full history</li>
+          </ul>
+          <p class="fine">Plus the normal fee for the job itself. For example, a Fahas inspection costs about SAR 115.</p>
+          <a class="btn" href="signup.html#individual">Start with my car</a>
+        </article>
+        <article class="card plan featured">
+          <svg class="ill plan-art" viewBox="0 0 160 56" aria-hidden="true">
+            <rect y="50" width="160" height="4" fill="#b7d8fb"/>
+            <use href="#car" x="2" y="20" width="56" height="36"/>
+            <use href="#car" x="52" y="12" width="56" height="36" style="--cb:#1a6dcf;--cg:#b7d8fb"/>
+            <use href="#car" x="102" y="20" width="56" height="36"/>
+          </svg>
+          <h3>Companies</h3>
+          <p class="price">One contract <span class="per">per year, for the whole fleet</span></p>
+          <ul class="checks">
+            <li><svg aria-hidden="true"><use href="#tick"/></svg>Every vehicle in one table</li>
+            <li><svg aria-hidden="true"><use href="#tick"/></svg>Select many cars and send one request</li>
+            <li><svg aria-hidden="true"><use href="#tick"/></svg>All driver pickups covered by the contract</li>
+            <li><svg aria-hidden="true"><use href="#tick"/></svg>Sell old fleet vehicles in one request</li>
+          </ul>
+          <p class="fine">One annual maintenance contract. No booking fee for each car.</p>
+          <a class="btn" href="signup.html#business">Set up my fleet</a>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 7. QUESTIONS ============ -->
+  <section class="section alt" id="faq">
+    <div class="container">
+      <div class="section-head">
+        <h2>Questions people ask</h2>
+      </div>
+      <div class="faq">
+        <details>
+          <summary>Who drives my car?</summary>
+          <p>A driver from our team. You choose the day, the time and the pickup place (home or work), and the driver brings the car back when the job is done.</p>
+        </details>
+        <details>
+          <summary>Is my car covered while your driver has it?</summary>
+          <p>Yes. Every trip is covered by our insurance, from pickup until the car is back with you.</p>
+        </details>
+        <details>
+          <summary>What does it cost?</summary>
+          <p>For individuals, SAR 120 for each driver job, plus the normal fee for the job itself. For companies, all pickups are covered by the annual maintenance contract.</p>
+        </details>
+        <details>
+          <summary>What if I want to do it myself?</summary>
+          <p>Press “I'll do it myself”. One week later we ask if it is done, so nothing is forgotten.</p>
+        </details>
+        <details>
+          <summary>Can you renew my Istimara?</summary>
+          <p>No. Only the car's owner can renew the Istimara, in the Absher app. We remind you in time and tell you what Absher needs first: a valid Fahas, active insurance and no unpaid traffic fines. We can do the Fahas and the insurance for you.</p>
+        </details>
+        <details>
+          <summary>How does buying a car work?</summary>
+          <p>Pick a car, choose delivery or pickup, and pay a deposit to hold it. The rest is paid through Absher’s Dhamen account, so the seller is paid only after the ownership transfer.</p>
+        </details>
+        <details>
+          <summary>What does “Verified” mean on a car's history?</summary>
+          <p>The job was done by our drivers, so we know it happened. Records marked “Owner reported” were added by the owner.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 8. FINAL CALL TO ACTION ============ -->
+  <section class="cta-band">
+    <div class="container">
+      <svg class="ill cta-car" viewBox="0 0 120 40" aria-hidden="true">
+        <g stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".6"><path d="M2 18h16M6 26h12"/></g>
+        <use href="#car" x="26" y="4" width="54" height="35" style="--cb:#fff;--cs:#0f2f5c;--cg:#b7d8fb"/>
+      </svg>
+      <h2>Stop worrying about renewal dates.</h2>
+      <p>Add your car once. We'll take it from there.</p>
+      <div class="actions" data-when="guest">
+        <a class="btn light" href="signup.html#individual">Start with my car</a>
+        <a class="btn ghost" href="signup.html#business">I manage a fleet</a>
+      </div>
+      <div class="actions" data-when="user" hidden>
+        <a class="btn light" href="market.html">See cars for sale</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <div class="container">
+    <p>Transport Management System · CS379 project prototype.</p>
+  </div>
+</footer>
+
+<script>
+/* Hero pictures: 5 slides, 4 seconds each (the time is set in style.css, @keyframes fill).
+   The left side never moves. The progress bar on the active number runs for 4 seconds;
+   when it ends, the next picture shows. Users stay in control: pick any picture, or press Pause. */
+(function () {
+  var hero   = document.querySelector('.hero');
+  var scenes = hero.querySelectorAll('.scene');
+  var caps   = hero.querySelectorAll('.cap');
+  var tabs   = hero.querySelectorAll('.tab');
+  var pause  = hero.querySelector('.pause');
+  var current = 0;
+
+  // the pickup day in the pictures is always the next working day
+  var next = TMS.workdays(1)[0];
+  hero.querySelectorAll('[data-day="0"]').forEach(function (el) { el.textContent = TMS.fmtDay(next); });
+
+  function show(n) {
+    current = (n + scenes.length) % scenes.length;
+    for (var k = 0; k < scenes.length; k++) {
+      var on = (k === current);
+      scenes[k].classList.toggle('active', on);
+      caps[k].classList.toggle('active', on);
+      caps[k].setAttribute('aria-hidden', String(!on));
+      tabs[k].classList.toggle('active', on);
+      if (on) tabs[k].setAttribute('aria-current', 'true'); else tabs[k].removeAttribute('aria-current');
+    }
+  }
+
+  hero.addEventListener('animationend', function (e) {
+    if (e.animationName === 'fill') show(current + 1);
+  });
+  tabs.forEach(function (tab, k) { tab.addEventListener('click', function () { show(k); }); });
+
+  function setPaused(p) {
+    hero.classList.toggle('paused', p);
+    pause.setAttribute('aria-pressed', String(p));
+    pause.querySelector('span').textContent = p ? 'Play' : 'Pause';
+  }
+  pause.addEventListener('click', function () { setPaused(!hero.classList.contains('paused')); });
+
+  // keyboard users: hold the picture while they move through the controls
+  var controls = hero.querySelector('.slide-controls');
+  controls.addEventListener('focusin', function (e) { if (e.target.matches(':focus-visible')) hero.classList.add('hold'); });
+  controls.addEventListener('focusout', function () { hero.classList.remove('hold'); });
+
+  // users who ask their device for less motion: start paused
+  if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) setPaused(true);
+})();
+</script>
+</div>
+</body>
+</html>

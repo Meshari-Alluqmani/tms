@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Admin · Transport Management System</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" type="image/png" href="icon-64.png">
+<script src="supabase.js"></script>
+<script src="app.js"></script>
+<script src="ar.js"></script>
+</head>
+<body class="app admin">
+<a class="skip" href="#main">Skip to main content</a>
+
+<header class="topbar">
+  <div class="container">
+    <a class="brand" href="index.html">
+      <img class="logo" src="logo.png" alt="" width="52" height="52">
+      <span>Transport Management System</span>
+    </a>
+    <nav class="topnav" aria-label="Main">
+      <a href="admin.html" aria-current="page">Admin page</a>
+      <a href="market.html">Cars for sale</a>
+    </nav>
+    <div class="tools">
+      <div data-display></div>
+      <div data-auth></div>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <div class="container" id="page">
+    <div class="pagehead">
+      <div>
+        <p class="eyebrow">Admin</p>
+        <h1 data-greet-page>Good morning</h1>
+        <p class="muted" id="today"></p>
+      </div>
+    </div>
+
+    <div class="tiles" id="tiles"></div>
+
+    <!-- tabs: one table at a time (Module 5, tabbed dialog boxes) -->
+    <div class="atabs" role="tablist" aria-label="Admin sections">
+      <button type="button" role="tab" id="tab-bookings" aria-controls="panel-bookings">Bookings <span class="count" id="c-bookings"></span></button>
+      <button type="button" role="tab" id="tab-listings" aria-controls="panel-listings">Listings <span class="count" id="c-listings"></span></button>
+      <button type="button" role="tab" id="tab-users" aria-controls="panel-users">Users <span class="count" id="c-users"></span></button>
+      <button type="button" role="tab" id="tab-payments" aria-controls="panel-payments">Payments <span class="count" id="c-payments"></span></button>
+    </div>
+
+    <section class="apanel" role="tabpanel" id="panel-bookings" aria-labelledby="tab-bookings">
+      <p class="intro">Choose a driver for each booking. When the job is finished, press “Mark done”: the owner’s date moves forward and a Verified record is added to the car’s history.</p>
+      <div class="card tablewrap"><div class="scroll" id="bookingsTable"></div></div>
+    </section>
+    <section class="apanel" role="tabpanel" id="panel-listings" aria-labelledby="tab-listings" hidden>
+      <p class="intro">Check each car before it goes public on Cars for sale.</p>
+      <div class="card tablewrap"><div class="scroll" id="listingsTable"></div></div>
+    </section>
+    <section class="apanel" role="tabpanel" id="panel-users" aria-labelledby="tab-users" hidden>
+      <p class="intro">Everyone with an account. Staff log in with their @tms.sa email.</p>
+      <div class="card tablewrap"><div class="scroll" id="usersTable"></div></div>
+    </section>
+    <section class="apanel" role="tabpanel" id="panel-payments" aria-labelledby="tab-payments" hidden>
+      <p class="intro">Buyers pay a deposit here. We pass it to the seller after the ownership transfer in Absher.</p>
+      <div class="card tablewrap"><div class="scroll" id="paymentsTable"></div></div>
+    </section>
+
+    <section class="card resetbox" aria-labelledby="resetTitle">
+      <div>
+        <h2 id="resetTitle">Example data</h2>
+        <p>Puts back the example cars, bookings, listings and payments, with dates counted from today. Use it before a demo or a usability test. Cars, bookings and listings added since then are deleted. Accounts stay.</p>
+      </div>
+      <button type="button" class="btn secondary" id="resetBtn">Reset example data</button>
+    </section>
+
+    <p class="datanote">CS379 prototype: no real driver is sent and no real payment is made.</p>
+  </div>
+</main>
+
+<dialog id="resetDlg" aria-labelledby="resetDlgTitle">
+  <div class="dlg">
+    <h2 id="resetDlgTitle">Reset all data?</h2>
+    <p class="sub">Every car, booking, listing and payment goes back to the example data. Everything added since is deleted, for everyone using the system. Accounts stay. This can’t be undone.</p>
+    <div class="actions">
+      <button type="button" class="btn danger" id="resetGo">Reset example data</button>
+      <button type="button" class="btn secondary" id="resetCancel">Cancel</button>
+    </div>
+  </div>
+</dialog>
+
+<footer class="footer">
+  <div class="container">
+    <p>Transport Management System · CS379 project prototype · Staff page.</p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var page = document.getElementById('page');
+  var user = TMS.user();
+
+  // only staff can open this page; there is no public "Admin" button anywhere
+  if (TMS.storageOK && !(user && TMS.isStaff(user.email))) {
+    page.innerHTML = '<div class="card gate"><h1>Staff only</h1><p class="muted">This page is for the system’s staff. Log in with your staff email to open it.</p>' +
+      '<button type="button" class="btn" id="goLogin">Log in</button></div>';
+    document.getElementById('goLogin').addEventListener('click', function () {
+      TMS.signOut();
+      TMS.set('next', 'admin.html');
+      TMS.set('reason', 'Log in with your staff email to open the Admin page.');
+      TMS.go('login.html#admin');
+    });
+    return;
+  }
+
+  function $(id) { return document.getElementById(id); }
+  var esc = TMS.esc;
+  var DRIVERS = ['Khalid A.', 'Fahad S.', 'Sami R.', 'Omar T.'];
+  var STATUS = {
+    pending: ['amber', 'Waiting for approval'], live: ['blue', 'For sale'], sold: ['green', 'Sold'],
+    removed: ['grey', 'Removed by seller'], rejected: ['red', 'Not approved']
+  };
+  function pill(level, text) { return '<span class="pill ' + level + '">' + text + '</span>'; }
+  $('today').textContent = 'Today is ' + TMS.longDate(TMS.today());
+
+  /* ---------- tiles: what needs attention first ---------- */
+  function renderTiles() {
+    var bookings = TMS.load('bookings'), listings = TMS.load('listings'), users = TMS.load('users'), payments = TMS.load('payments');
+    var waiting = bookings.filter(function (b) { return b.status !== 'done' && !b.driver && b.place !== 'Online'; }).length;
+    var pending = listings.filter(function (l) { return l.status === 'pending'; }).length;
+    var held = payments.filter(function (p) { return p.status === 'held'; });
+    var heldSum = held.reduce(function (s, p) { return s + p.amount; }, 0);
+    $('tiles').innerHTML =
+      '<div class="card tile"><p class="n ' + (waiting ? 'amber' : 'green') + '">' + waiting + '</p><p class="l">Bookings waiting for a driver</p></div>' +
+      '<div class="card tile"><p class="n ' + (pending ? 'amber' : 'green') + '">' + pending + '</p><p class="l">Listings waiting for approval</p></div>' +
+      '<div class="card tile"><p class="n blue">' + users.length + '</p><p class="l">Users</p></div>' +
+      '<div class="card tile"><p class="n blue">' + held.length + '</p><p class="l">Deposits held · ' + TMS.sar(heldSum) + '</p></div>';
+    $('c-bookings').textContent = waiting;
+    $('c-listings').textContent = pending;
+    $('c-users').textContent = users.length;
+    $('c-payments').textContent = held.length;
+  }
+
+  /* ---------- bookings: assign a driver, then mark the job done ---------- */
+  var BORDER = { waiting: 0, assigned: 1, done: 2 };
+  function bstatus(b) { return b.status || (b.driver ? 'assigned' : 'waiting'); }
+  function renderBookings() {
+    var list = TMS.load('bookings').slice().sort(function (a, b) { return BORDER[bstatus(a)] - BORDER[bstatus(b)]; });
+    if (!list.length) { $('bookingsTable').innerHTML = '<p class="empty">No bookings yet.</p>'; return; }
+    $('bookingsTable').innerHTML = '<table><thead><tr><th>Customer</th><th>Vehicle</th><th>Job</th><th>Pickup</th><th>Place</th><th>Driver and status</th></tr></thead><tbody>' +
+      list.map(function (b) {
+        var st = bstatus(b), cell, web = b.place === 'Online';
+        if (web && st !== 'done') {          // insurance renewed online by our team: no driver needed
+          cell = '<span class="acts">' + pill('blue', 'Online · no driver') +
+                 '<button type="button" class="btn small" data-done="' + esc(b.id) + '">Mark done</button></span>';
+        } else if (st === 'waiting') {
+          cell = '<span class="acts"><label class="sr-only" for="drv-' + esc(b.id) + '">Driver for ' + esc(b.customer) + '</label>' +
+                 '<select id="drv-' + esc(b.id) + '">' + DRIVERS.map(function (d) { return '<option>' + d + '</option>'; }).join('') + '</select>' +
+                 '<button type="button" class="btn small" data-assign="' + esc(b.id) + '">Assign</button></span>';
+        } else if (st === 'assigned') {
+          cell = '<span class="acts">' + pill('blue', 'Driver: ' + esc(b.driver)) +
+                 '<button type="button" class="btn small" data-done="' + esc(b.id) + '">Mark done</button>' +
+                 '<button type="button" class="linkbtn" data-unassign="' + esc(b.id) + '">Change driver</button></span>';
+        } else {
+          cell = pill('green', 'Done' + (b.doneDate ? ' · ' + esc(b.doneDate) : '')) + (b.driver ? '<span class="cellsub">' + esc(b.driver) + '</span>' : '');
+        }
+        return '<tr' + (st === 'done' ? ' class="booked"' : '') + '><td><b>' + esc(b.customer) + '</b></td><td>' + esc(b.car) + '<span class="cellsub">' + esc(b.plate) + '</span></td>' +
+               '<td>' + esc(b.job) + '</td><td class="nowrap">' + (web ? '<span class="muted">No pickup</span>' : esc(b.day) + '<span class="cellsub">' + esc(b.time) + '</span>') + '</td>' +
+               '<td>' + esc(b.place) + '</td><td>' + cell + '</td></tr>';
+      }).join('') + '</tbody></table>';
+  }
+  function updateBooking(id, change) {
+    var all = TMS.load('bookings');
+    all.forEach(function (x) { if (x.id === id) Object.keys(change).forEach(function (k) { x[k] = change[k]; }); });
+    TMS.save('bookings', all);
+  }
+  $('bookingsTable').addEventListener('click', function (e) {
+    var b;
+    if ((b = e.target.closest('[data-assign]'))) {
+      var id = b.getAttribute('data-assign'), driver = $('drv-' + id).value;
+      updateBooking(id, { driver: driver, status: 'assigned' }); refresh();
+      var next = document.querySelector('[data-done="' + id + '"]'); if (next) next.focus();
+      TMS.toast(driver + ' is assigned. The customer sees the driver’s name now.');
+    } else if ((b = e.target.closest('[data-unassign]'))) {
+      var uid = b.getAttribute('data-unassign');
+      updateBooking(uid, { driver: null, status: 'waiting' }); refresh();
+      var sel = $('drv-' + uid); if (sel) sel.focus();
+    } else if ((b = e.target.closest('[data-done]'))) {
+      markDone(b.getAttribute('data-done'));
+    }
+  });
+  // the job is finished: renew the car's dates and add Verified records to its history
+  function markDone(id) {
+    var bookings = TMS.load('bookings'), booking = bookings.filter(function (x) { return x.id === id; })[0];
+    if (!booking) return;
+    var vehicles = TMS.load('vehicles'), before = null;
+    vehicles.forEach(function (v) {
+      if (v.id === booking.vehicleId) { before = TMS.clone(v); TMS.renew(v, booking.jobs || [booking.job], true); }
+    });
+    if (before) TMS.save('vehicles', vehicles);
+    updateBooking(id, { status: 'done', doneDate: TMS.fmt(TMS.today()) });
+    refresh();
+    TMS.toast('Done. ' + (before ? 'The owner’s dates are renewed and the job is added to the car’s history as Verified.' : 'The customer is told.'), function () {
+      if (before) {
+        var again = TMS.load('vehicles');
+        TMS.save('vehicles', again.map(function (v) { return v.id === before.id ? before : v; }));
+      }
+      updateBooking(id, { status: 'assigned', doneDate: null });
+      refresh();
+    });
+  }
+
+  /* ---------- listings: approve before they go public ---------- */
+  var ORDER = { pending: 0, live: 1, sold: 2, rejected: 3, removed: 4 };
+  function renderListings() {
+    var list = TMS.load('listings').slice().sort(function (a, b) { return ORDER[a.status] - ORDER[b.status]; });
+    $('listingsTable').innerHTML = '<table><thead><tr><th>Car</th><th>Seller</th><th>Price</th><th>History</th><th>Sent</th><th>Status</th></tr></thead><tbody>' +
+      list.map(function (l) {
+        var s = STATUS[l.status] || STATUS.removed, act;
+        if (l.status === 'pending') act = '<span class="acts"><button type="button" class="btn small" data-approve="' + esc(l.id) + '">Approve</button>' +
+                                          '<button type="button" class="btn secondary small" data-reject="' + esc(l.id) + '">Reject</button></span>';
+        else if (l.status === 'live') act = '<span class="acts">' + pill(s[0], s[1]) + '<a href="car.html#' + esc(l.id) + '">View</a></span>';
+        else if (l.status === 'rejected') act = '<span class="acts">' + pill(s[0], s[1]) + '<button type="button" class="linkbtn" data-reopen="' + esc(l.id) + '">Undo</button></span>';
+        else act = pill(s[0], s[1]);
+        return '<tr><td><b>' + esc(l.year + ' ' + l.make + ' ' + l.model) + '</b><span class="cellsub">' + TMS.km(l.km) + ' · ' + esc(l.city) + ' · ' + esc(TMS.accidentText(l)) + '</span>' +
+               (l.accidentNotes ? '<span class="cellsub">“' + esc(l.accidentNotes) + '”</span>' : '') + '</td>' +
+               '<td>' + esc(l.seller) + '<span class="cellsub">' + (l.sellerType === 'company' ? 'Company' : 'Individual') + (l.handle ? ' · we handle the sale' : '') + '</span></td>' +
+               '<td class="money">' + TMS.sar(l.price) + '</td><td>' + (TMS.historyOf(l).length ? TMS.verifiedCount(l) + ' of ' + TMS.historyOf(l).length + ' verified' : 'No records yet') + '</td>' +
+               '<td class="nowrap">' + esc(l.listed) + '</td><td>' + act + '</td></tr>';
+      }).join('') + '</tbody></table>';
+  }
+  $('listingsTable').addEventListener('click', function (e) {
+    var b;
+    if ((b = e.target.closest('[data-approve]'))) {
+      var id = b.getAttribute('data-approve');
+      TMS.updateListing(id, { status: 'live', listed: TMS.fmt(TMS.today()) }); refresh();
+      TMS.toast('Approved. The car is now on Cars for sale.', function () { TMS.updateListing(id, { status: 'pending' }); refresh(); });
+    } else if ((b = e.target.closest('[data-reject]'))) {
+      var rid = b.getAttribute('data-reject');
+      TMS.updateListing(rid, { status: 'rejected' }); refresh();
+      TMS.toast('Rejected. The seller sees “Not approved”.', function () { TMS.updateListing(rid, { status: 'pending' }); refresh(); });
+    } else if ((b = e.target.closest('[data-reopen]'))) {
+      TMS.updateListing(b.getAttribute('data-reopen'), { status: 'pending' }); refresh();
+    }
+  });
+
+  /* ---------- users ---------- */
+  function renderUsers() {
+    var vehicles = TMS.load('vehicles');
+    $('usersTable').innerHTML = '<table><thead><tr><th>Name</th><th>Email</th><th>Account</th><th>Company</th><th>Vehicles</th><th>Joined</th></tr></thead><tbody>' +
+      TMS.load('users').map(function (u) {
+        var n = vehicles.filter(function (v) { return v.owner === u.email; }).length;
+        return '<tr><td><b>' + esc(u.name) + '</b></td><td>' + esc(u.email) + '</td><td>' + (u.type === 'business' ? 'Business' : 'Individual') + '</td>' +
+               '<td>' + (u.company ? esc(u.company) : '<span class="muted">None</span>') + '</td><td class="num">' + n + '</td><td class="nowrap">' + esc(u.joined) + '</td></tr>';
+      }).join('') + '</tbody></table>';
+  }
+
+  /* ---------- payments: pay the seller after the transfer ---------- */
+  function renderPayments() {
+    var list = TMS.load('payments').slice().reverse();
+    $('paymentsTable').innerHTML = '<table><thead><tr><th>Receipt</th><th>Car</th><th>Buyer</th><th>Paid here</th><th>Method</th><th>Date</th><th>Status</th></tr></thead><tbody>' +
+      list.map(function (p) {
+        var st = p.status === 'held'
+          ? '<span class="acts">' + pill('amber', 'Held until transfer') + '<button type="button" class="btn secondary small" data-release="' + esc(p.id) + '">Transfer done in Absher: pay seller</button></span>'
+          : pill('green', 'Paid to seller');
+        return '<tr><td class="nowrap"><b>' + esc(p.receipt) + '</b></td><td>' + esc(p.car) + '<span class="cellsub">Seller: ' + esc(p.seller) + '</span></td>' +
+               '<td>' + esc(p.buyer) + '</td><td class="money">' + TMS.sar(p.amount) + (p.carPrice ? '<span class="cellsub">Deposit and fee · car price ' + TMS.sar(p.carPrice) + ' via Absher</span>' : '') + '</td><td>' + esc(p.method) + '</td>' +
+               '<td class="nowrap">' + esc(p.date) + '</td><td>' + st + '</td></tr>';
+      }).join('') + '</tbody></table>';
+  }
+  $('paymentsTable').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-release]');
+    if (!b) return;
+    var id = b.getAttribute('data-release'), all = TMS.load('payments');
+    all.forEach(function (p) { if (p.id === id) p.status = 'paid'; });
+    TMS.save('payments', all); refresh();
+    TMS.toast('The deposit is passed to the seller.', function () {
+      var again = TMS.load('payments');
+      again.forEach(function (p) { if (p.id === id) p.status = 'held'; });
+      TMS.save('payments', again); refresh();
+    });
+  });
+
+  function refresh() { renderTiles(); renderBookings(); renderListings(); renderUsers(); renderPayments(); }
+
+  /* ---------- tabs: click or use the arrow keys ---------- */
+  var names = ['bookings', 'listings', 'users', 'payments'];
+  function select(name, focus) {
+    names.forEach(function (n) {
+      var on = n === name;
+      $('tab-' + n).setAttribute('aria-selected', String(on));
+      $('tab-' + n).tabIndex = on ? 0 : -1;
+      $('panel-' + n).hidden = !on;
+    });
+    if (focus) $('tab-' + name).focus();
+    TMS.setParam(name);
+  }
+  names.forEach(function (n, i) {
+    $('tab-' + n).addEventListener('click', function () { select(n, false); });
+    $('tab-' + n).addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowRight') select(names[(i + 1) % names.length], true);
+      if (e.key === 'ArrowLeft') select(names[(i + names.length - 1) % names.length], true);
+    });
+  });
+
+  /* ---------- reset the example data (asks first) ---------- */
+  var resetDlg = $('resetDlg');
+  $('resetBtn').addEventListener('click', function () { resetDlg.showModal(); $('resetCancel').focus(); });
+  $('resetCancel').addEventListener('click', function () { resetDlg.close(); });
+  resetDlg.addEventListener('close', function () { $('resetBtn').focus(); });
+  $('resetGo').addEventListener('click', function () {
+    var go = $('resetGo');
+    go.disabled = true; go.textContent = 'Resetting…';
+    TMS.resetData().then(function () {
+      go.disabled = false; go.textContent = 'Reset example data';
+      resetDlg.close();
+      refresh();
+      TMS.toast('The example data is back, with dates counted from today.');
+    }, function () {
+      go.disabled = false; go.textContent = 'Reset example data';
+      resetDlg.close();
+    });
+  });
+
+  var startTab = names.indexOf(TMS.param()) > -1 ? TMS.param() : 'bookings';
+  select(startTab, false);
+  $('bookingsTable').innerHTML = '<p class="empty">Loading…</p>';
+  // wait for the data, then follow every change live (new bookings, new listings, new users)
+  TMS.ready(function () {
+    refresh();
+    TMS.onChange(function () { refresh(); });
+  });
+})();
+</script>
+</body>
+</html>

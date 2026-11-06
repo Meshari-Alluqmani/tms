@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Log in · Transport Management System</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" type="image/png" href="icon-64.png">
+<script src="supabase.js"></script>
+<script src="app.js"></script>
+<script src="ar.js"></script>
+</head>
+<body class="auth">
+<a class="skip" href="#main">Skip to main content</a>
+
+<header class="topbar">
+  <div class="container">
+    <a class="brand" href="index.html">
+      <img class="logo" src="logo.png" alt="" width="52" height="52">
+      <span>Transport Management System</span>
+    </a>
+    <nav class="topnav" aria-label="Main">
+      <a href="market.html">Cars for sale</a>
+    </nav>
+    <div class="tools">
+      <div data-display></div>
+      <div data-auth="signup"></div>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <div class="card panel">
+    <p class="note top" id="reason" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+      <span></span>
+    </p>
+    <p class="eyebrow" id="adminEyebrow" hidden>Staff only</p>
+    <h1 id="loginTitle">Log in</h1>
+    <p class="muted" id="loginIntro">Enter the email and password of your account.</p>
+
+    <form id="loginForm" novalidate>
+      <div class="field">
+        <label for="email" id="emailLabel">Email</label>
+        <input id="email" name="email" type="email" autocomplete="email" inputmode="email" aria-describedby="emailError">
+        <p class="error" id="emailError" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+          <span></span>
+        </p>
+      </div>
+
+      <div class="field">
+        <label for="password">Password</label>
+        <div class="pw">
+          <input id="password" name="password" type="password" autocomplete="current-password" aria-describedby="passwordError">
+          <button type="button" class="btn secondary" id="togglePw" aria-controls="password" aria-pressed="false">Show</button>
+        </div>
+        <p class="error" id="passwordError" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+          <span></span>
+        </p>
+      </div>
+
+      <div class="forgot">
+        <button type="button" class="linkbtn" id="forgot" aria-controls="forgotNote" aria-expanded="false">Forgot password?</button>
+      </div>
+      <p class="formnote" id="forgotNote" hidden>In the full system we would email you a link to choose a new password. This prototype does not send emails.</p>
+
+      <div class="submit">
+        <button class="btn block" type="submit" id="loginGo">Log in</button>
+      </div>
+    </form>
+
+    <p class="after" id="ownerAfter">New here? <a href="signup.html">Create an account</a></p>
+    <p class="after" id="adminAfter" hidden>Not staff? <a href="login.html">Log in as a car owner</a></p>
+
+    <div class="note" id="demoNote">
+      <p><b>Prototype.</b> No emails are sent, so a made-up email is fine. Demo accounts:</p>
+      <ul class="demo">
+        <li><b>ahmed@example.com</b>: car owner with 3 cars</li>
+        <li><b>albahar@example.com</b>: company with 8 vehicles</li>
+        <li><b>admin@tms.sa</b>: staff (Admin page)</li>
+      </ul>
+    </div>
+
+    <p class="adminlink" id="adminLink"><a href="login.html#admin">Admin log-in</a></p>
+  </div>
+</main>
+
+<footer class="footer">
+  <div class="container">
+    <p>Transport Management System · CS379 project prototype.</p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  function $(id) { return document.getElementById(id); }
+  var form  = $('loginForm');
+  var email = $('email');
+  var pw    = $('password');
+
+  // "Admin log-in" (the small link at the bottom) opens this page in staff mode
+  var ADMIN = TMS.param() === 'admin';
+  // in the zip copy the "Admin log-in" link only changes the end of the address: reload to show it
+  if (!TMS.bundle) window.addEventListener('hashchange', function () { location.reload(); });
+  if (ADMIN) {
+    $('adminEyebrow').hidden = false;
+    $('loginTitle').textContent = 'Admin log-in';
+    $('loginIntro').textContent = 'For the system’s staff. Use your staff email, which ends in @tms.sa.';
+    $('emailLabel').textContent = 'Staff email';
+    $('loginGo').textContent = 'Log in to the Admin page';
+    $('ownerAfter').hidden = true;
+    $('adminAfter').hidden = false;
+    $('adminLink').hidden = true;
+    $('demoNote').innerHTML = '<p><b>Prototype.</b> Demo staff account: <b>admin@tms.sa</b></p>';
+  }
+
+  // a page that needs a log-in sent the user here: say why
+  var reason = TMS.get('reason', '');
+  if (reason) {
+    var box = $('reason');
+    box.querySelector('span').textContent = reason;
+    box.hidden = false;
+  }
+
+  // show or clear the error under one field; the user's text is never deleted
+  function setError(input, message) {
+    var box = $(input.id + 'Error');
+    if (message) {
+      box.querySelector('span').textContent = message;
+      box.hidden = false;
+      input.setAttribute('aria-invalid', 'true');
+    } else {
+      box.hidden = true;
+      input.removeAttribute('aria-invalid');
+    }
+  }
+
+  // error messages: polite, short, and say how to fix the problem
+  function checkEmail() {
+    var v = email.value.trim();
+    if (!v) return 'Enter your email address.';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return 'Enter a full email address, for example name@example.com.';
+    if (ADMIN && !TMS.isStaff(v)) return 'This is not a staff email. Staff emails end in @tms.sa.';
+    return '';
+  }
+  function checkPassword() {
+    if (!pw.value) return 'Enter your password.';
+    if (pw.value.length < 6) return 'Your password needs at least 6 characters.';
+    return '';
+  }
+
+  email.addEventListener('input', function () { if (email.hasAttribute('aria-invalid')) setError(email, checkEmail()); });
+  pw.addEventListener('input',    function () { if (pw.hasAttribute('aria-invalid'))    setError(pw, checkPassword()); });
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var btn = $('loginGo'), label = ADMIN ? 'Log in to the Admin page' : 'Log in';
+    if (btn.disabled) return;
+    var emailMsg = checkEmail(), pwMsg = checkPassword();
+    setError(email, emailMsg);
+    setError(pw, pwMsg);
+    if (emailMsg) { email.focus(); return; }   // take the user straight to the problem
+    if (pwMsg)    { pw.focus();    return; }
+
+    btn.disabled = true; btn.textContent = 'Logging in…';
+    // wait for the database connection, then let Supabase check the email and password
+    TMS.ready(function () {
+      TMS.logIn(email.value, pw.value).then(function (u) {
+        var staff = TMS.isStaff(u.email);
+        if (ADMIN && !staff) {
+          TMS.signOut();
+          throw { field: 'email', message: 'This account is not a staff account. Log in as a car owner instead.' };
+        }
+        var next = TMS.takeNext();
+        if (staff && next && !/^admin\.html/.test(next) && !/^(market|car)\.html/.test(next)) next = null;
+        TMS.go(next || (staff ? 'admin.html' : 'vehicles.html'));
+      }).catch(function (err) {
+        btn.disabled = false; btn.textContent = label;
+        var input = err && err.field === 'email' ? email : pw;
+        setError(input, (err && err.message) || 'Something went wrong. Please try again.');
+        input.focus();
+      });
+    });
+  });
+
+  // show / hide password: helps users who mistype
+  var toggle = $('togglePw');
+  toggle.addEventListener('click', function () {
+    var show = pw.type === 'password';
+    pw.type = show ? 'text' : 'password';
+    toggle.textContent = show ? 'Hide' : 'Show';
+    toggle.setAttribute('aria-pressed', String(show));
+  });
+
+  // "Forgot password?" explains what would happen, instead of doing nothing
+  var forgot = $('forgot'), note = $('forgotNote');
+  forgot.addEventListener('click', function () {
+    note.hidden = !note.hidden;
+    forgot.setAttribute('aria-expanded', String(!note.hidden));
+  });
+})();
+</script>
+</body>
+</html>

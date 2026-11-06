@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cars for sale · Transport Management System</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" type="image/png" href="icon-64.png">
+<script src="supabase.js"></script>
+<script src="app.js"></script>
+<script src="ar.js"></script>
+</head>
+<body class="app">
+<a class="skip" href="#main">Skip to main content</a>
+
+<header class="topbar">
+  <div class="container">
+    <a class="brand" href="index.html">
+      <img class="logo" src="logo.png" alt="" width="52" height="52">
+      <span>Transport Management System</span>
+    </a>
+    <nav class="topnav" aria-label="Main">
+      <a href="vehicles.html" data-when="member" hidden>My vehicles</a>
+      <a href="admin.html" data-when="staff" hidden>Admin page</a>
+      <a href="market.html" aria-current="page">Cars for sale</a>
+    </nav>
+    <div class="tools">
+      <div data-display></div>
+      <div data-auth></div>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <div class="container">
+    <div class="pagehead">
+      <div>
+        <p class="eyebrow">Cars for sale</p>
+        <h1>Buy a car with its full history</h1>
+        <p class="muted">Every car shows its service, Fahas, Istimara and insurance records. Records marked Verified were done by our drivers.</p>
+      </div>
+    </div>
+
+    <!-- simultaneous menus (Module 5): every filter is visible and can be changed in any order -->
+    <form class="card filters" id="filters" aria-label="Filter cars">
+      <div class="field">
+        <label for="fMake">Make</label>
+        <select id="fMake"><option value="">All makes</option></select>
+      </div>
+      <div class="field">
+        <label for="fCity">City</label>
+        <select id="fCity"><option value="">All cities</option></select>
+      </div>
+      <div class="field">
+        <label for="fPrice">Highest price: <output id="fPriceOut" for="fPrice">Any</output></label>
+        <input id="fPrice" type="range" min="20000" max="250000" step="5000" value="250000">
+      </div>
+      <div class="field">
+        <label class="check" for="fVerified"><input type="checkbox" id="fVerified"><span>Only cars with verified records</span></label>
+      </div>
+      <button type="reset" class="btn secondary small" id="fClear">Clear filters</button>
+    </form>
+
+    <div class="resultbar">
+      <p id="count" role="status"></p>
+      <label for="sort">Sort by
+        <select id="sort">
+          <option value="new">Newest first</option>
+          <option value="low">Price: low to high</option>
+          <option value="high">Price: high to low</option>
+          <option value="km">Fewest kilometres</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="market" id="grid"></div>
+    <div class="card empty" id="none" hidden>
+      <p>No cars match these filters. Try a higher price or another make.</p>
+      <p style="margin-top:12px"><button type="button" class="btn secondary small" id="noneClear">Clear filters</button></p>
+    </div>
+
+    <p class="legend" style="margin-top:22px">
+      <span><span class="pill green">Verified</span> The job was done by our drivers</span>
+      <span><span class="pill grey">Owner reported</span> Added by the owner</span>
+    </p>
+
+    <div class="card sellband">
+      <div>
+        <h2>Selling a car?</h2>
+        <p data-when="guest">Create an account, add your car, then press “Sell this car”. Its full history goes with it.</p>
+        <p data-when="user" hidden>Press “Sell this car” on any car in My vehicles. We fill in the details from its record.</p>
+      </div>
+      <a class="btn" href="signup.html#individual" data-when="guest">Create an account</a>
+      <a class="btn" href="vehicles.html" data-when="member" hidden>Go to My vehicles</a>
+    </div>
+
+    <p class="datanote">CS379 prototype: the example cars, sellers and prices are made up, and no real payment is made.</p>
+  </div>
+</main>
+
+<footer class="footer">
+  <div class="container">
+    <p>Transport Management System · CS379 project prototype.</p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  function $(id) { return document.getElementById(id); }
+  var esc = TMS.esc;
+  var live = [];
+
+  // fill the menus from the cars that are for sale (keeps the user's choice when the list changes)
+  function options(select, values, firstLabel) {
+    var keep = select.value;
+    select.innerHTML = '<option value="">' + firstLabel + '</option>' +
+      values.sort().map(function (v) { return '<option>' + esc(v) + '</option>'; }).join('');
+    if (values.indexOf(keep) > -1) select.value = keep;
+  }
+  function unique(key) { return live.map(function (l) { return l[key]; }).filter(function (v, i, a) { return a.indexOf(v) === i; }); }
+  function loadData() {
+    live = TMS.load('listings').filter(function (l) { return l.status === 'live'; });
+    options($('fMake'), unique('make'), 'All makes');
+    options($('fCity'), unique('city'), 'All cities');
+  }
+
+  function render() {
+    var make = $('fMake').value, city = $('fCity').value, max = Number($('fPrice').value);
+    var onlyVerified = $('fVerified').checked, sort = $('sort').value;
+    $('fPriceOut').textContent = max >= 250000 ? 'Any' : TMS.sar(max);
+
+    var cars = live.filter(function (l) {
+      return (!make || l.make === make) && (!city || l.city === city) &&
+             (max >= 250000 || l.price <= max) && (!onlyVerified || TMS.verifiedCount(l) > 0);
+    });
+    cars.sort(function (a, b) {
+      if (sort === 'low') return a.price - b.price;
+      if (sort === 'high') return b.price - a.price;
+      if (sort === 'km') return a.km - b.km;
+      return (b.created || 0) - (a.created || 0);   // newest first
+    });
+
+    $('count').textContent = cars.length === 1 ? '1 car for sale' : cars.length + ' cars for sale';
+    $('none').hidden = cars.length > 0;
+    $('grid').innerHTML = cars.map(function (l) {
+      var v = TMS.verifiedCount(l), n = TMS.historyOf(l).length;
+      var badge = v ? '<span class="pill green">' + TMS.icon.tick.replace('<svg', '<svg width="15" height="15"') + 'Verified · ' + v + ' of ' + n + ' records</span>'
+                    : n ? '<span class="pill grey">Owner reported · ' + n + ' records</span>'
+                    : '<span class="pill grey">No records yet</span>';
+      return '<article class="card mcard">' + TMS.carPic(l, 'mpic') +
+        '<div class="mbody">' +
+          '<h3 class="mtitle"><a href="car.html#' + esc(l.id) + '">' + esc(l.year + ' ' + l.make + ' ' + l.model) + '</a></h3>' +
+          '<p class="mmeta">' + TMS.km(l.km) + ' · ' + esc(l.city) + (l.sellerType === 'company' ? ' · sold by a company' : '') + ' · ' + esc(TMS.accidentText(l)) + '</p>' +
+          '<p class="mprice">' + TMS.sar(l.price) + '</p>' +
+          '<div class="mfoot">' + badge + '</div>' +
+        '</div></article>';
+    }).join('');
+  }
+
+  $('filters').addEventListener('input', render);
+  $('filters').addEventListener('change', render);
+  $('filters').addEventListener('submit', function (e) { e.preventDefault(); });
+  $('filters').addEventListener('reset', function () { setTimeout(render, 0); });
+  $('sort').addEventListener('change', render);
+  $('noneClear').addEventListener('click', function () { $('filters').reset(); $('fMake').focus(); });
+  $('count').textContent = 'Loading the cars…';
+  // wait for the data, then show new listings the moment the admin approves them
+  TMS.ready(function () {
+    loadData(); render();
+    TMS.onChange(function (keys) { if (keys.indexOf('listings') > -1 || keys.indexOf('vehicles') > -1) { loadData(); render(); } });
+  });
+})();
+</script>
+</body>
+</html>

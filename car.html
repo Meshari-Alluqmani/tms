@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Car for sale · Transport Management System</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" type="image/png" href="icon-64.png">
+<script src="supabase.js"></script>
+<script src="app.js"></script>
+<script src="ar.js"></script>
+</head>
+<body class="app">
+<a class="skip" href="#main">Skip to main content</a>
+
+<header class="topbar">
+  <div class="container">
+    <a class="brand" href="index.html">
+      <img class="logo" src="logo.png" alt="" width="52" height="52">
+      <span>Transport Management System</span>
+    </a>
+    <nav class="topnav" aria-label="Main">
+      <a href="vehicles.html" data-when="member" hidden>My vehicles</a>
+      <a href="admin.html" data-when="staff" hidden>Admin page</a>
+      <a href="market.html">Cars for sale</a>
+    </nav>
+    <div class="tools">
+      <div data-display></div>
+      <div data-auth></div>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <div class="container" id="page">
+    <p class="crumbs"><a href="market.html">Cars for sale</a></p>
+    <div class="card gate"><p>Loading the car…</p></div>
+  </div>
+</main>
+
+<footer class="footer">
+  <div class="container">
+    <p>Transport Management System · CS379 project prototype.</p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var esc = TMS.esc;
+  var page = document.getElementById('page');
+
+  function render() {
+    var id = TMS.param();
+    var l = id ? TMS.findListing(id) : null;
+    if (!l || l.status === 'removed' || l.status === 'pending' || l.status === 'rejected') {
+      document.title = 'Car not found · Transport Management System';
+      page.innerHTML = '<p class="crumbs"><a href="market.html">Cars for sale</a></p>' +
+        '<div class="card gate"><h1>This car is not for sale</h1><p class="muted">It may have been sold or removed by the seller.</p>' +
+        '<a class="btn" href="market.html">See cars for sale</a></div>';
+      return;
+    }
+    var name = l.year + ' ' + l.make + ' ' + l.model;
+    document.title = name + ' · Transport Management System';
+    var hist = TMS.historyOf(l), verified = TMS.verifiedCount(l);
+    var sold = l.status === 'sold';
+    var mine = TMS.user() && TMS.user().email === l.sellerEmail;
+
+    var buy = sold ? '<p class="pill green" style="margin-top:18px">Sold</p><p class="hint">This car has been sold.</p>'
+            : mine ? '<p class="pill blue" style="margin-top:18px">Your listing</p><p class="hint">Buyers see this page.</p>'
+            : '<a class="btn block" href="checkout.html#' + esc(l.id) + '">Buy this car</a>' +
+              '<p class="hint">Pay a ' + TMS.sar(Math.min(TMS.DEPOSIT, l.price)) + ' deposit now to hold the car. The rest is paid through Absher.</p>';
+
+    page.innerHTML =
+      '<p class="crumbs"><a href="market.html">Cars for sale</a> / ' + esc(name) + '</p>' +
+      '<div class="carlayout">' +
+        '<div>' +
+          '<div class="card carpic">' + TMS.carPic(l) + '</div>' +
+          '<section class="history card" aria-labelledby="histTitle" style="padding:22px 22px 8px">' +
+            '<h2 id="histTitle">Full history</h2>' +
+            '<p class="legend"><span><span class="pill green">Verified</span> done by our drivers</span>' +
+              '<span><span class="pill grey">Owner reported</span> added by the owner</span></p>' +
+            (hist.length ? '<ol class="timeline">' + hist.map(function (h) {
+              return '<li><span class="d">' + esc(h.date) + '</span>' +
+                     '<span class="t"><b>' + esc(h.type) + '</b><span>' + esc(h.detail) + '</span></span>' +
+                     (h.verified ? '<span class="pill green">' + TMS.icon.tick + 'Verified</span>' : '<span class="pill grey">Owner reported</span>') +
+                     '</li>';
+            }).join('') + '</ol>' : '<p class="muted" style="padding:0 0 18px">No records yet. Jobs done through our system will appear here.</p>') +
+          '</section>' +
+        '</div>' +
+        '<aside class="card buybox" aria-label="Price and buying">' +
+          '<h1>' + esc(name) + '</h1>' +
+          '<p class="price">' + TMS.sar(l.price) + '</p>' +
+          '<dl class="facts">' +
+            '<dt>Kilometres</dt><dd class="num">' + TMS.km(l.km) + '</dd>' +
+            '<dt>City</dt><dd>' + esc(l.city) + '</dd>' +
+            '<dt>Seller</dt><dd>' + esc(l.seller) + ' · ' + (l.sellerType === 'company' ? 'company' : 'individual') + '</dd>' +
+            '<dt>Accident</dt><dd>' + (l.accident === 'yes' ? '<span class="pill amber">Accident reported</span>' : esc(TMS.accidentText(l))) + '</dd>' +
+            (l.accidentNotes ? '<dt>Seller’s notes</dt><dd>' + esc(l.accidentNotes) + '</dd>' : '') +
+            '<dt>History</dt><dd>' + (hist.length ? hist.length + ' records, ' + verified + ' verified' : 'No records yet') + '</dd>' +
+            '<dt>Listed</dt><dd>' + esc(l.listed) + '</dd>' +
+          '</dl>' +
+          buy +
+          '<div class="safe">' + TMS.icon.shield +
+            '<p><b>Pay safely.</b> The rest of the price goes into Absher’s Dhamen account. The seller gets it only after the ownership transfer.</p></div>' +
+        '</aside>' +
+      '</div>';
+  }
+  if (!TMS.bundle) window.addEventListener('hashchange', render);
+  // wait for the data; if the car is sold or its price changes, the page updates by itself
+  TMS.ready(function () {
+    render();
+    TMS.onChange(function (keys) { if (keys.indexOf('listings') > -1 || keys.indexOf('vehicles') > -1) render(); });
+  });
+})();
+</script>
+</body>
+</html>

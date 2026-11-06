@@ -1,0 +1,1207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>My vehicles · Transport Management System</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" type="image/png" href="icon-64.png">
+<script src="supabase.js"></script>
+<script src="app.js"></script>
+<script src="ar.js"></script>
+</head>
+<body class="app">
+<a class="skip" href="#main">Skip to main content</a>
+
+<header class="topbar">
+  <div class="container">
+    <a class="brand" href="index.html">
+      <img class="logo" src="logo.png" alt="" width="52" height="52">
+      <span>Transport Management System</span>
+    </a>
+    <nav class="topnav" aria-label="Main">
+      <a href="vehicles.html" aria-current="page">My vehicles</a>
+      <a href="market.html">Cars for sale</a>
+    </nav>
+    <div class="tools">
+      <div data-display></div>
+      <div data-auth></div>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <div class="container">
+
+    <!-- the dashboard greets the user by name; the account type decides the view -->
+    <div class="pagehead">
+      <div>
+        <p class="eyebrow" id="eyebrow">My vehicles</p>
+        <h1 data-greet-page>Good morning</h1>
+        <p class="muted" id="headSub"></p>
+      </div>
+      <button type="button" class="btn" id="addBtn" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span id="addLabel">Add a car</span>
+      </button>
+    </div>
+
+    <div class="card gate" id="loading"><p>Loading your vehicles…</p></div>
+
+    <!-- ================= NO CARS YET ================= -->
+    <section class="card emptystate" id="emptyState" aria-labelledby="emptyTitle" hidden>
+      <span class="emptyicon" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M5 17h14v-5l-2-5H7l-2 5z"/><circle cx="8" cy="17" r="2"/><circle cx="16" cy="17" r="2"/></svg>
+      </span>
+      <h2 id="emptyTitle">Add your first car</h2>
+      <p id="emptyText">Enter its plate, kilometres and the Istimara, Fahas and insurance dates. We remind you before each date, and our driver can handle it for you.</p>
+      <button type="button" class="btn" id="emptyAdd">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span id="emptyBtnLabel">Add your first car</span>
+      </button>
+    </section>
+
+    <!-- ================= INDIVIDUAL: large cards ================= -->
+    <section id="viewInd" aria-label="Your cars" hidden>
+      <div class="tiles" id="indTiles"></div>
+      <p class="legend">
+        <span><i class="red"></i>Red: overdue, or 14 days or less</span>
+        <span><i class="amber"></i>Amber: 15 to 30 days, or 1,000 km or less</span>
+        <span><i class="green"></i>Green: more time left</span>
+        <span><i class="blue"></i>Blue: driver booked</span>
+      </p>
+      <div class="cards" id="cards"></div>
+    </section>
+
+    <!-- ================= BUSINESS: dense table ================= -->
+    <section id="viewBiz" aria-labelledby="fleetTitle" hidden>
+      <div class="tiles" id="bizTiles"></div>
+      <p class="legend">
+        <span><i class="red"></i>Red: overdue, or 14 days or less</span>
+        <span><i class="amber"></i>Amber: 15 to 30 days, or 1,000 km or less</span>
+        <span><i class="green"></i>Green: more time left</span>
+        <span><i class="blue"></i>Blue: driver booked</span>
+      </p>
+
+      <div class="subhead">
+        <h2 id="fleetTitle">Your fleet</h2>
+        <p>Nearest date first. Tick vehicles to book drivers or sell them in one request.</p>
+      </div>
+
+      <div class="card tablewrap">
+        <div class="bulk" id="bulk" hidden>
+          <p id="bulkCount"><b>0 vehicles selected</b></p>
+          <button type="button" class="btn" id="bulkGo">Handle selected for me</button>
+          <button type="button" class="btn secondary" id="bulkSell">Sell selected</button>
+          <button type="button" class="btn secondary" id="bulkClear">Clear</button>
+        </div>
+        <div class="bulk done-bar" id="batchDone" hidden role="status">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+          <p id="batchText"></p>
+          <button type="button" class="linkbtn" id="batchUndo">Undo</button>
+        </div>
+        <div class="scroll">
+          <table>
+            <thead>
+              <tr>
+                <th class="cb"><input type="checkbox" id="selAll" aria-label="Select all vehicles"></th>
+                <th>Plate</th><th>Vehicle</th><th>Location</th><th>Next due</th><th>Date</th><th>Status</th><th><span class="sr-only">Change</span></th>
+              </tr>
+            </thead>
+            <tbody id="fleetRows"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= MY LISTINGS: cars this user is selling ================= -->
+    <section aria-labelledby="listTitle" id="listSection" hidden>
+      <div class="subhead">
+        <h2 id="listTitle">My listings</h2>
+        <p>Cars you are selling. Our team checks each one before it goes public.</p>
+      </div>
+      <div class="card tablewrap" id="listWrap"></div>
+    </section>
+
+    <p class="datanote">Prototype for CS379: no real driver is sent and no real payment is made.</p>
+  </div>
+</main>
+
+<footer class="footer">
+  <div class="container">
+    <p>Transport Management System · CS379 project prototype.</p>
+  </div>
+</footer>
+
+<!-- ================= ADD OR EDIT A CAR (form fill-in in a dialog box) ================= -->
+<dialog id="carDlg" aria-labelledby="carTitle">
+  <form id="carForm" class="dlg" novalidate>
+    <h2 id="carTitle">Add a car</h2>
+    <p class="sub" id="carSub">We use these details to remind you before each date.</p>
+    <p class="addednote" id="carAdded" role="status" hidden></p>
+
+    <div class="grid2">
+      <div class="field">
+        <label for="cMake">Make</label>
+        <input id="cMake" type="text" list="makes" autocomplete="off" maxlength="30" aria-describedby="cMakeError">
+        <datalist id="makes">
+          <option value="Toyota"><option value="Hyundai"><option value="Kia"><option value="Nissan"><option value="Honda">
+          <option value="Ford"><option value="Chevrolet"><option value="GMC"><option value="Lexus"><option value="Mazda">
+          <option value="Mitsubishi"><option value="Isuzu"><option value="Mercedes"><option value="BMW"><option value="Audi">
+          <option value="Volkswagen"><option value="Changan"><option value="Geely"><option value="MG"><option value="Jeep">
+        </datalist>
+        <p class="error" id="cMakeError" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg><span></span></p>
+      </div>
+      <div class="field">
+        <label for="cModel">Model</label>
+        <input id="cModel" type="text" autocomplete="off" maxlength="30" aria-describedby="cModelError">
+        <p class="error" id="cModelError" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg><span></span></p>
+      </div>
+      <div class="field">
+        <label for="cYear">Year</label>
+        <select id="cYear" aria-describedby="cYearError"></select>
+        <p class="error" id="cYearError" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg><span></span></p>
+      </div>
+      <div class="field">
+        <label for="cColour">Colour</label>
+        <select id="cColour"></select>
+      </div>
+    </div>
+
+    <!-- plate: two boxes in the Saudi format, so it cannot be typed the wrong way -->
+    <fieldset class="field">
+      <legend>Plate number</legend>
+      <div class="platebox">
+        <div>
+          <label for="cPlateL" class="sublabel">Letters</label>
+          <input id="cPlateL" type="text" maxlength="5" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-describedby="cPlateHint cPlateError">
+        </div>
+        <div>
+          <label for="cPlateN" class="sublabel">Numbers</label>
+          <input id="cPlateN" type="text" inputmode="numeric" maxlength="4" autocomplete="off" aria-describedby="cPlateHint cPlateError">
+        </div>
+      </div>
+      <p class="hint" id="cPlateHint">3 letters and up to 4 numbers, for example A J K and 2847.</p>
+      <p class="error" id="cPlateError" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg><span></span></p>
+    </fieldset>
+
+    <div class="grid2">
+      <div class="field">
+        <label for="cKm">Kilometres now</label>
+        <input id="cKm" type="text" inputmode="numeric" autocomplete="off" aria-describedby="cKmError">
+        <p class="error" id="cKmError" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg><span></span></p>
+      </div>
+      <div class="field" id="cLocationField" hidden>
+        <label for="cLocation">Location</label>
+        <input id="cLocation" type="text" maxlength="40" autocomplete="off" aria-describedby="cLocationHint cLocationError">
+        <p class="hint" id="cLocationHint">Where our driver collects it, for example Yanbu depot.</p>
+        <p class="error" id="cLocationError" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg><span></span></p>
+      </div>
+    </div>
+
+    <h3 class="dlgsec">Expiry dates</h3>
+    <div class="grid3">
+      <div class="field">
+        <label for="cIst">Istimara</label>
+        <input id="cIst" type="date" aria-describedby="cIstError">
+        <p class="error" id="cIstError" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg><span></span></p>
+      </div>
+      <div class="field">
+        <label for="cFah">Fahas</label>
+        <input id="cFah" type="date" aria-describedby="cFahError">
+        <p class="error" id="cFahError" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg><span></span></p>
+      </div>
+      <div class="field">
+        <label for="cIns">Insurance</label>
+        <input id="cIns" type="date" aria-describedby="cInsError">
+        <p class="error" id="cInsError" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg><span></span></p>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="cOil">Kilometres at the last oil service <span class="opt">(optional)</span></label>
+      <input id="cOil" type="text" inputmode="numeric" autocomplete="off" aria-describedby="cOilHint cOilError">
+      <p class="hint" id="cOilHint">We remind you every 10,000 km after it.</p>
+      <p class="error" id="cOilError" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg><span></span></p>
+    </div>
+
+    <div class="actions">
+      <button type="submit" class="btn" id="carSave">Save car</button>
+      <button type="button" class="btn secondary" id="carAnother" hidden>Save and add another</button>
+      <button type="button" class="btn secondary" id="carCancel">Cancel</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ================= REMOVE A CAR: asks first ================= -->
+<dialog id="rmDlg" aria-labelledby="rmTitle">
+  <div class="dlg">
+    <h2 id="rmTitle">Remove this car?</h2>
+    <p class="sub" id="rmText"></p>
+    <div class="actions">
+      <button type="button" class="btn danger" id="rmGo">Remove</button>
+      <button type="button" class="btn secondary" id="rmCancel">Cancel</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- ================= BOOKING DIALOG (both views) ================= -->
+<dialog id="book" aria-labelledby="bookTitle">
+  <form id="bookForm" class="dlg">
+    <h2 id="bookTitle">Book a driver</h2>
+    <p class="sub" id="bookSub"></p>
+
+    <p class="willdo">We will:</p>
+    <ul class="tasks" id="bookTasks"></ul>
+
+    <fieldset class="field" id="dayField">
+      <legend>Pickup day</legend>
+      <div class="choicegrid" id="dayChoices"></div>
+      <p class="hint">Workshops are closed on Friday and Saturday.</p>
+    </fieldset>
+
+    <fieldset class="field" id="timeField">
+      <legend>Pickup time</legend>
+      <div class="choicegrid">
+        <span class="choice"><input class="sr-only" type="radio" name="time" id="t1" value="8–10 am" checked><label for="t1">8–10 am</label></span>
+        <span class="choice"><input class="sr-only" type="radio" name="time" id="t2" value="12–2 pm"><label for="t2">12–2 pm</label></span>
+        <span class="choice"><input class="sr-only" type="radio" name="time" id="t3" value="4–6 pm"><label for="t3">4–6 pm</label></span>
+      </div>
+    </fieldset>
+
+    <div class="field" id="placeField">
+      <label for="place">Pickup location</label>
+      <select id="place" name="place">
+        <option value="Home">Home</option>
+        <option value="Work">Work</option>
+      </select>
+    </div>
+
+    <p class="cost" id="bookCost"></p>
+
+    <div class="actions">
+      <button type="submit" class="btn" id="bookGo">Confirm booking</button>
+      <button type="button" class="btn secondary" id="bookCancel">Cancel</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ================= SELL ONE CAR ================= -->
+<dialog id="sell" aria-labelledby="sellTitle">
+  <form id="sellForm" class="dlg" novalidate>
+    <h2 id="sellTitle">Sell your car</h2>
+    <p class="sub" id="sellSub"></p>
+    <dl class="facts" id="sellFacts"></dl>
+    <p class="hint">Filled in from your car's record. Buyers see the full history.</p>
+
+    <div class="field">
+      <label for="sellPrice">Your price</label>
+      <div class="prefix"><span>SAR</span><input id="sellPrice" type="text" inputmode="numeric" autocomplete="off" aria-describedby="sellPriceHint sellPriceError"></div>
+      <p class="hint" id="sellPriceHint">Numbers only, for example 68000.</p>
+      <p class="error" id="sellPriceError" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+        <span></span>
+      </p>
+    </div>
+
+    <div class="field">
+      <label for="sellCity">City</label>
+      <select id="sellCity">
+        <option>Riyadh</option><option>Jeddah</option><option>Makkah</option>
+        <option>Madinah</option><option>Dammam</option><option selected>Yanbu</option>
+      </select>
+    </div>
+
+    <fieldset class="field" id="sellAccident" aria-describedby="sellAccidentHint sellAccidentError">
+      <legend>Has this car had an accident?</legend>
+      <div class="choicegrid">
+        <span class="choice"><input class="sr-only" type="radio" name="accident" id="accNo" value="no"><label for="accNo">No</label></span>
+        <span class="choice"><input class="sr-only" type="radio" name="accident" id="accYes" value="yes"><label for="accYes">Yes</label></span>
+        <span class="choice"><input class="sr-only" type="radio" name="accident" id="accUnknown" value="unknown"><label for="accUnknown">I don’t know</label></span>
+      </div>
+      <p class="hint" id="sellAccidentHint">Buyers always ask. An honest answer helps you sell faster.</p>
+      <p class="error" id="sellAccidentError" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+        <span></span>
+      </p>
+    </fieldset>
+
+    <div class="field">
+      <label for="sellNotes">Notes for buyers <span class="opt">(optional)</span></label>
+      <textarea id="sellNotes" rows="2" maxlength="300" aria-describedby="sellNotesHint"></textarea>
+      <p class="hint" id="sellNotesHint">For example: front bumper repaired in 2024, or the engine was replaced.</p>
+    </div>
+
+    <div class="field">
+      <label for="sellPhotos">Photo <span class="opt">(optional)</span></label>
+      <input id="sellPhotos" type="file" accept="image/*" aria-describedby="sellPhotosHint">
+      <div class="photoprev" id="sellPreview" hidden></div>
+      <p class="hint" id="sellPhotosHint">Without a photo, buyers see a drawing of the car.</p>
+    </div>
+
+    <div class="field">
+      <label class="check" for="sellHandle">
+        <input type="checkbox" id="sellHandle">
+        <span><b>Handle the sale for me</b>
+          <span class="hint" id="sellHandleHint">Our driver checks the car and delivers it to the buyer after you transfer ownership in Absher. SAR 120, paid from the buyer’s deposit.</span></span>
+      </label>
+    </div>
+
+    <p class="cost">Our team checks every listing before it goes public.</p>
+    <div class="actions">
+      <button type="submit" class="btn" id="sellGo">List my car</button>
+      <button type="button" class="btn secondary" id="sellCancel">Cancel</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ================= SELL MANY FLEET VEHICLES ================= -->
+<dialog id="sellMany" aria-labelledby="sellManyTitle">
+  <form id="sellManyForm" class="dlg" novalidate>
+    <h2 id="sellManyTitle">Sell vehicles</h2>
+    <p class="sub">Type a price for each vehicle and say if it had an accident. We fill in the rest from each record.</p>
+    <table class="sellrows">
+      <thead><tr><th>Vehicle</th><th>Price and accident</th></tr></thead>
+      <tbody id="sellManyRows"></tbody>
+    </table>
+    <p class="error" id="sellManyError" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+      <span></span>
+    </p>
+    <div class="field">
+      <label class="check" for="sellManyHandle">
+        <input type="checkbox" id="sellManyHandle" checked>
+        <span><b>Handle the sale for me</b>
+          <span class="hint">Checks, ownership transfers and deliveries are covered by your annual contract.</span></span>
+      </label>
+    </div>
+    <p class="cost">Our team checks every listing before it goes public.</p>
+    <div class="actions">
+      <button type="submit" class="btn" id="sellManyGo">List vehicles</button>
+      <button type="button" class="btn secondary" id="sellManyCancel">Cancel</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(function () {
+  function $(id) { return document.getElementById(id); }
+  var esc = TMS.esc;
+
+  // a log-in is needed to see "My vehicles"; staff use the Admin page instead
+  var user = TMS.user();
+  if (!user && TMS.storageOK) { TMS.askLogin('vehicles.html', 'Log in to see your vehicles.'); return; }
+  if (user && TMS.isStaff(user.email)) { TMS.go('admin.html'); return; }
+  user = user || { name: 'Guest', email: 'guest@example.com', type: 'individual', company: '' };
+
+  var BIZ = user.type === 'business';          // the account type decides the view
+  var CAR = BIZ ? 'vehicle' : 'car';
+  var T = TMS.today();
+  var CHECK = TMS.icon.tick;
+  var TAG = TMS.icon.tag;
+  function pill(level, text) { return '<span class="pill ' + level + '">' + text + '</span>'; }
+  function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+  // ======================= DATA =======================
+  function allVehicles() { return TMS.load('vehicles'); }
+  function myVehicles() { return allVehicles().filter(function (v) { return v.owner === user.email; }); }
+  function findVehicle(id) { return allVehicles().filter(function (v) { return v.id === id; })[0] || null; }
+  function saveVehicle(v) {
+    var all = allVehicles(), found = false;
+    all.forEach(function (x, i) { if (x.id === v.id) { all[i] = v; found = true; } });
+    if (!found) all.push(v);
+    TMS.save('vehicles', all);
+  }
+  function myListings() { return TMS.load('listings').filter(function (l) { return l.sellerEmail === user.email; }); }
+  function activeListing(vid) {
+    return myListings().filter(function (l) { return l.vehicleId === vid && /pending|live|sold|rejected/.test(l.status); })[0] || null;
+  }
+  var STATUS = {
+    pending: ['amber', 'Waiting for approval'],
+    live: ['blue', 'For sale'],
+    sold: ['green', 'Sold'],
+    removed: ['grey', 'Removed'],
+    rejected: ['red', 'Not approved']
+  };
+  function statusPill(l) { var s = STATUS[l.status] || STATUS.removed; return pill(s[0], s[1]); }
+
+  // who does each job, as in Saudi Arabia:
+  //  - Istimara: only the owner can renew it, in the Absher app. We remind and explain, nothing more.
+  //  - Insurance: we renew it online for the owner. No driver and no pickup.
+  //  - Fahas and oil service: our driver collects the car.
+  var OWNER_ONLY = ['Istimara'], ONLINE = ['Insurance'];
+  function onlineOnly(jobs) { return jobs.length > 0 && jobs.every(function (j) { return ONLINE.indexOf(j) > -1; }); }
+
+  // reminders of one car: which are booked, which the owner will do, which are due
+  function stateOf(v, bookings) {
+    var items = TMS.items(v);
+    var booking = TMS.activeBooking(v, bookings);
+    var bookedJobs = booking ? (booking.jobs || [booking.job]) : [];
+    var selfJobs = v.self ? v.self.jobs : [];
+    items.forEach(function (it) {
+      it.booked = bookedJobs.indexOf(it.what) > -1; it.mine = selfJobs.indexOf(it.what) > -1;
+      it.ownerOnly = OWNER_ONLY.indexOf(it.what) > -1;
+    });
+    var due = items.filter(function (it) { return TMS.isDue(it) && !it.booked && !it.mine && !it.ownerOnly; });
+    var next = items.slice().sort(function (a, b) { return a.urgency - b.urgency; })[0] || null;
+    var nextJob = items.filter(function (it) { return !it.ownerOnly; }).sort(function (a, b) { return a.urgency - b.urgency; })[0] || null;
+    // the Istimara is due: Absher renews it only if the Fahas and the insurance are still valid on that day
+    var ist = items.filter(function (it) { return it.ownerOnly && TMS.isDue(it); })[0] || null;
+    var first = ist ? items.filter(function (it) {
+      return (it.what === 'Fahas' || it.what === 'Insurance') && it.days <= ist.days;
+    }) : [];
+    return { items: items, booking: booking, due: due, next: next, nextJob: nextJob, istimara: ist, first: first };
+  }
+  function phrase(it) {
+    if (it.kind === 'km') return it.kmLeft <= 0 ? 'overdue by ' + TMS.km(-it.kmLeft) : 'due in ' + TMS.km(it.kmLeft);
+    if (it.days < 0) return 'overdue by ' + (-it.days) + (it.days === -1 ? ' day' : ' days');
+    if (it.days === 0) return 'due today';
+    return 'due in ' + it.left;
+  }
+  // "Istimara and Fahas are due in 12 days. Oil service is due in 760 km."
+  function askText(due) {
+    var groups = [];
+    due.forEach(function (d) {
+      var p = phrase(d), g = groups.filter(function (x) { return x.p === p; })[0];
+      if (g) g.names.push(d.what); else groups.push({ p: p, names: [d.what] });
+    });
+    return groups.map(function (g) {
+      return TMS.joinNames(g.names) + (g.names.length > 1 ? ' are ' : ' is ') + g.p + '.';
+    }).join(' ');
+  }
+
+  // ======================= THE PAGE =======================
+  $('addLabel').textContent = BIZ ? 'Add a vehicle' : 'Add a car';
+  $('emptyTitle').textContent = BIZ ? 'Add your first vehicle' : 'Add your first car';
+  $('emptyBtnLabel').textContent = BIZ ? 'Add your first vehicle' : 'Add your first car';
+  if (BIZ) $('emptyText').textContent = 'Add each vehicle with its plate, kilometres, location and the Istimara, Fahas and insurance dates. Then book drivers for many vehicles in one request.';
+  $('eyebrow').textContent = BIZ ? 'My vehicles · ' + (user.company || 'Company fleet') : 'My vehicles';
+
+  function renderAll() {
+    var mine = myVehicles(), bookings = TMS.load('bookings');
+    var none = mine.length === 0;
+    $('emptyState').hidden = !none;
+    $('addBtn').hidden = none;
+    $('viewInd').hidden = none || BIZ;
+    $('viewBiz').hidden = none || !BIZ;
+    $('listSection').hidden = none && myListings().length === 0;
+    $('headSub').textContent = BIZ
+      ? (user.company || 'Company fleet') + ' · ' + mine.length + (mine.length === 1 ? ' vehicle' : ' vehicles') + ' · reminders as of ' + TMS.longDate(T)
+      : 'Reminders as of ' + TMS.longDate(T);
+    if (BIZ) renderFleet(mine, bookings); else renderCards(mine, bookings);
+    renderListings();
+  }
+
+  function tiles(holder, list, bookings, label) {
+    var red = 0, amber = 0;
+    list.forEach(function (v) {
+      stateOf(v, bookings).items.forEach(function (it) {
+        if (it.booked) return;
+        if (it.level === 'red') red++;
+        if (it.level === 'amber') amber++;
+      });
+    });
+    holder.innerHTML =
+      '<div class="card tile"><p class="n red">' + red + '</p><p class="l">Due in 14 days or less</p></div>' +
+      '<div class="card tile"><p class="n amber">' + amber + '</p><p class="l">Due in 15 to 30 days</p></div>' +
+      '<div class="card tile"><p class="n blue">' + list.length + '</p><p class="l">' + label + '</p></div>';
+  }
+
+  // ======================= INDIVIDUAL VIEW: one card per car =======================
+  // the Istimara: a reminder only. It says what Absher needs first.
+  function istimaraNote(v, st) {
+    var it = st.istimara;
+    if (!it) return '';
+    var first = st.first.map(function (f) { return f.what + (f.booked ? ' (booked)' : ''); });
+    return '<div class="absher">' +
+      '<p class="ask"><b>Istimara is ' + esc(phrase(it)) + '.</b> Only you can renew it, in the Absher app. The government fee is SAR 100 a year.</p>' +
+      (first.length
+        ? '<p class="warnline">' + TMS.icon.alert + '<span><b>First: ' + esc(TMS.joinNames(first)) + '.</b> Absher renews the Istimara only with a valid Fahas, active insurance and all traffic fines paid.</span></p>'
+        : '<p class="hint">Absher needs a valid Fahas, active insurance and all traffic fines paid. Yours are fine.</p>') +
+      '<div class="btns"><button type="button" class="btn secondary" data-istdone="' + v.id + '">I renewed it in Absher</button>' +
+      '<a class="btn secondary" href="https://www.absher.sa" target="_blank" rel="noopener">Open Absher<span class="sr-only"> (opens in a new tab)</span></a></div>' +
+    '</div>';
+  }
+  function footer(v, st) {
+    var main = jobFooter(v, st), ist = istimaraNote(v, st);
+    return main && ist ? main + '<hr class="split">' + ist : main || ist;
+  }
+  function jobFooter(v, st) {
+    if (st.booking) {
+      var b = st.booking, jobs = b.jobs || [b.job], cancel = '<button type="button" class="linkbtn" data-cancel="' + v.id + '">Cancel ' + (b.place === 'Online' ? 'request' : 'booking') + '</button>';
+      if (b.place === 'Online') {
+        return '<div class="done">' + CHECK + '<div><p><b>Renewal requested.</b> We renew your insurance online and add the new policy to this car. No pickup is needed.</p>' +
+               '<p class="bstatus">' + pill('amber', 'In progress') + '</p>' + cancel + '</div></div>';
+      }
+      var status = b.status === 'assigned' && b.driver
+        ? pill('blue', 'Driver: ' + esc(b.driver)) : pill('amber', 'Waiting for a driver');
+      return '<div class="done">' + CHECK + '<div><p><b>Driver booked.</b> We collect the car from your ' + esc(String(b.place).toLowerCase()) +
+             ' on ' + esc(b.day) + ', ' + esc(b.time) + ', and return it the same day.' +
+             (jobs.indexOf('Insurance') > -1 ? ' We renew the insurance online.' : '') + '</p>' +
+             '<p class="bstatus">' + status + '</p>' + cancel + '</div></div>';
+    }
+    if (v.self && v.self.jobs.length) {
+      var since = TMS.parseISO(v.self.since) || T;
+      return '<p class="ask"><b>You’re doing it yourself:</b> ' + esc(TMS.joinNames(v.self.jobs)) +
+             '. We’ll check with you on ' + TMS.fmt(TMS.addDays(since, 7)) + '. Done it already?</p>' +
+             '<div class="btns"><button type="button" class="btn" data-selfdone="' + v.id + '">Yes, it’s done</button>' +
+             '<button type="button" class="btn secondary" data-selfnot="' + v.id + '">Not yet</button></div>';
+    }
+    if (st.due.length) {
+      return '<p class="ask">' + esc(askText(st.due)) + ' Who will do it?</p><div class="btns">' +
+             '<button type="button" class="btn" data-handle="' + v.id + '">Handle it for me</button>' +
+             '<button type="button" class="btn secondary" data-self="' + v.id + '">I’ll do it myself</button></div>';
+    }
+    if (st.istimara) return '';                // only the Istimara is due: its note says it all
+    var dates = st.items.filter(function (it) { return it.kind === 'date'; }).sort(function (a, b) { return a.days - b.days; });
+    var nextDate = dates.length ? TMS.addDays(T, Math.max(dates[0].days - 30, 1)) : null;
+    return '<div class="done">' + CHECK + '<p>Nothing is due.' + (nextDate ? ' Your next reminder is on ' + TMS.fmt(nextDate) + '.' : '') + '</p></div>';
+  }
+  function sellStrip(v) {
+    var l = activeListing(v.id);
+    if (!l) return '<div class="vsell"><span class="grow muted">Selling? Buyers see this car’s full history.</span>' +
+                   '<button type="button" class="btn secondary small" data-sell="' + v.id + '">' + TAG + 'Sell this car</button></div>';
+    var price = '<b class="num">' + TMS.sar(l.price) + '</b>';
+    var acts = '';
+    if (l.status === 'live') acts = '<a href="car.html#' + esc(l.id) + '">View listing</a> <button type="button" class="linkbtn" data-unlist="' + esc(l.id) + '">Remove listing</button>';
+    if (l.status === 'pending') acts = '<button type="button" class="linkbtn" data-unlist="' + esc(l.id) + '">Remove listing</button>';
+    if (l.status === 'rejected') acts = '<button type="button" class="linkbtn" data-sell="' + v.id + '">Try again</button>';
+    return '<div class="vsell"><span class="grow">' + statusPill(l) + price + '</span>' + acts + '</div>';
+  }
+  function renderCards(mine, bookings) {
+    tiles($('indTiles'), mine, bookings, mine.length === 1 ? 'Car' : 'Cars');
+    $('cards').innerHTML = mine.map(function (v) {
+      var st = stateOf(v, bookings);
+      var urgent = st.items.some(function (it) { return it.level === 'red' && !it.booked; });
+      var rows = st.items.map(function (it) {
+        var status = it.booked ? pill('blue', 'Booked') : pill(it.level, it.left);
+        return '<li><span class="what">' + it.what + '<span class="when">' + esc(it.when) + '</span></span>' + status + '</li>';
+      }).join('');
+      var name = TMS.vehicleName(v);
+      return '<article class="card vcard' + (urgent ? ' urgent' : '') + '" id="car-' + v.id + '">' +
+               '<div class="vhead"><div><h3>' + esc(name) + ' <span class="yr">' + esc(v.year) + '</span></h3>' +
+               '<p class="plate">' + esc(TMS.plate(v)) + '</p></div><p class="km">' + TMS.km(v.km) + '</p></div>' +
+               '<ul class="rows">' + rows + '</ul>' +
+               '<div class="vfoot">' + footer(v, st) + '</div>' +
+               sellStrip(v) +
+               '<div class="vtools">' +
+                 '<button type="button" class="linkbtn" data-edit="' + v.id + '">' + TMS.icon.edit + 'Edit<span class="sr-only"> ' + esc(name) + '</span></button>' +
+                 '<button type="button" class="linkbtn" data-remove="' + v.id + '">' + TMS.icon.trash + 'Remove<span class="sr-only"> ' + esc(name) + '</span></button>' +
+               '</div>' +
+             '</article>';
+    }).join('');
+  }
+  function focusIn(vid, selector) {
+    var el = document.querySelector('#car-' + vid + ' ' + selector);
+    if (el) el.focus();
+  }
+
+  $('cards').addEventListener('click', function (e) {
+    var b;
+    if ((b = e.target.closest('[data-handle]'))) openBooking([b.getAttribute('data-handle')], b);
+    else if ((b = e.target.closest('[data-self]'))) doMyself(b.getAttribute('data-self'));
+    else if ((b = e.target.closest('[data-selfdone]'))) selfDone(b.getAttribute('data-selfdone'));
+    else if ((b = e.target.closest('[data-selfnot]'))) selfNotYet(b.getAttribute('data-selfnot'));
+    else if ((b = e.target.closest('[data-istdone]'))) istimaraDone(b.getAttribute('data-istdone'));
+    else if ((b = e.target.closest('[data-cancel]'))) cancelBooking(b.getAttribute('data-cancel'));
+    else if ((b = e.target.closest('[data-sell]'))) openSell(b.getAttribute('data-sell'), b);
+    else if ((b = e.target.closest('[data-unlist]'))) unlist(b.getAttribute('data-unlist'));
+    else if ((b = e.target.closest('[data-edit]'))) openCar(b.getAttribute('data-edit'), b);
+    else if ((b = e.target.closest('[data-remove]'))) openRemove(b.getAttribute('data-remove'), b);
+  });
+
+  // "I'll do it myself": the card then asks "Done it?"
+  function doMyself(id) {
+    var v = findVehicle(id); if (!v) return;
+    var st = stateOf(v, TMS.load('bookings'));
+    v.self = { jobs: st.due.map(function (d) { return d.what; }), since: TMS.iso(T) };
+    saveVehicle(v); renderAll(); focusIn(id, '[data-selfdone]');
+  }
+  function selfDone(id) {
+    var v = findVehicle(id); if (!v || !v.self) return;
+    var before = TMS.clone(v), jobs = v.self.jobs.slice();
+    TMS.renew(v, jobs, false);
+    v.self = null;
+    saveVehicle(v); renderAll(); focusIn(id, '.vfoot');
+    TMS.toast('Great. ' + TMS.joinNames(jobs) + (jobs.length > 1 ? ' are' : ' is') + ' renewed and added to the car’s history.',
+      function () { saveVehicle(before); renderAll(); focusIn(id, '[data-selfdone]'); });
+  }
+  function istimaraDone(id) {
+    var v = findVehicle(id); if (!v) return;
+    var before = TMS.clone(v);
+    TMS.renew(v, ['Istimara'], false);
+    saveVehicle(v); renderAll(); focusIn(id, '.vfoot');
+    TMS.toast('Istimara renewed until ' + TMS.fmt(TMS.parseISO(v.istimara)) + '. If Absher shows another date, press Edit to change it.',
+      function () { saveVehicle(before); renderAll(); focusIn(id, '[data-istdone]'); });
+  }
+  function selfNotYet(id) {
+    var v = findVehicle(id); if (!v) return;
+    v.self = null;
+    saveVehicle(v); renderAll(); focusIn(id, '[data-handle]');
+    TMS.toast('OK. We’ll keep reminding you, and our driver can still do it for you.');
+  }
+  function cancelBooking(id) {
+    var v = findVehicle(id); if (!v) return;
+    var all = TMS.load('bookings'), b = TMS.activeBooking(v, all);
+    if (!b) return;
+    TMS.save('bookings', all.filter(function (x) { return x.id !== b.id; }));
+    renderAll(); focusIn(id, '[data-handle], .vfoot');
+    TMS.toast(b.place === 'Online' ? 'Request cancelled.' : 'Booking cancelled.', function () {
+      var again = TMS.load('bookings'); again.push(b); TMS.save('bookings', again); renderAll();
+    });
+  }
+
+  // ======================= BUSINESS VIEW: one row per vehicle =======================
+  var selected = {}, lastBatch = null;
+
+  function renderFleet(mine, bookings) {
+    tiles($('bizTiles'), mine, bookings, mine.length === 1 ? 'Vehicle' : 'Vehicles');
+    var rows = mine.map(function (v) { return { v: v, st: stateOf(v, bookings) }; });
+    rows.sort(function (a, b) { return (a.st.next ? a.st.next.urgency : 9999) - (b.st.next ? b.st.next.urgency : 9999); });
+    Object.keys(selected).forEach(function (id) { if (!mine.some(function (v) { return v.id === id; })) delete selected[id]; });
+    $('fleetRows').innerHTML = rows.map(function (r) {
+      var v = r.v, st = r.st, it = st.next, b = st.booking;
+      var status = b ? (b.place === 'Online' ? pill('blue', 'Renewing online')
+                       : b.status === 'assigned' && b.driver ? pill('blue', 'Driver: ' + esc(b.driver)) : pill('blue', 'Booked · ' + esc(String(b.day).replace(/^\w+ /, ''))))
+                     : it ? pill(it.level, it.left) : '';
+      var l = activeListing(v.id);
+      var sale = l ? '<span class="cellsub">' + statusPill(l) + ' <span class="num">' + TMS.sar(l.price) + '</span></span>' : '';
+      var name = TMS.vehicleName(v);
+      return '<tr class="' + (selected[v.id] ? 'sel' : '') + (b ? ' booked' : '') + '">' +
+        '<td class="cb"><input type="checkbox" data-row="' + v.id + '" aria-label="Select ' + esc(TMS.plate(v)) + '"' + (selected[v.id] ? ' checked' : '') + '></td>' +
+        '<td class="plate-cell">' + esc(TMS.plate(v)) + '</td>' +
+        '<td>' + esc(name) + ' <span class="muted">' + esc(v.year) + '</span>' + sale + '</td>' +
+        '<td>' + esc(v.location || '') + '</td>' +
+        '<td>' + (it ? it.what : '') + (it && it.ownerOnly && TMS.isDue(it)
+            ? '<span class="cellsub">' + (st.first.length ? 'Do ' + esc(TMS.joinNames(st.first.map(function (f) { return f.what; }))) + ' first, then renew in Absher' : 'Renew in Absher') + '</span>' : '') + '</td>' +
+        '<td class="nowrap">' + (it ? esc(it.when) : '') + '</td><td>' + status + '</td>' +
+        '<td><span class="acts">' +
+          '<button type="button" class="linkbtn" data-edit="' + v.id + '">Edit<span class="sr-only"> ' + esc(TMS.plate(v)) + '</span></button>' +
+          '<button type="button" class="linkbtn" data-remove="' + v.id + '">Remove<span class="sr-only"> ' + esc(TMS.plate(v)) + '</span></button>' +
+        '</span></td></tr>';
+    }).join('');
+    syncBulk(mine);
+  }
+  function selectedIds() { return Object.keys(selected).filter(function (id) { return selected[id]; }); }
+  function syncBulk(mine) {
+    mine = mine || myVehicles();
+    var n = selectedIds().length;
+    var all = $('selAll');
+    all.checked = n > 0 && n === mine.length;
+    all.indeterminate = n > 0 && n < mine.length;
+    $('bulk').hidden = n === 0;
+    $('bulkCount').innerHTML = '<b>' + (n === 1 ? '1 vehicle selected' : n + ' vehicles selected') + '</b>';
+    var bookings = TMS.load('bookings');
+    var bookable = selectedIds().filter(function (id) { var v = findVehicle(id); return v && !TMS.activeBooking(v, bookings); }).length;
+    $('bulkGo').disabled = bookable === 0;
+  }
+  $('fleetRows').addEventListener('change', function (e) {
+    var id = e.target.getAttribute('data-row');
+    if (id === null) return;
+    selected[id] = e.target.checked;
+    e.target.closest('tr').classList.toggle('sel', e.target.checked);
+    $('batchDone').hidden = true;
+    syncBulk();
+  });
+  $('fleetRows').addEventListener('click', function (e) {
+    var b;
+    if ((b = e.target.closest('[data-edit]'))) openCar(b.getAttribute('data-edit'), b);
+    else if ((b = e.target.closest('[data-remove]'))) openRemove(b.getAttribute('data-remove'), b);
+  });
+  $('selAll').addEventListener('change', function () {
+    var on = $('selAll').checked;
+    selected = {};
+    if (on) myVehicles().forEach(function (v) { selected[v.id] = true; });
+    $('batchDone').hidden = true;
+    renderAll();
+  });
+  $('bulkClear').addEventListener('click', function () { selected = {}; renderAll(); $('selAll').focus(); });
+  $('bulkGo').addEventListener('click', function () {
+    var bookings = TMS.load('bookings');
+    var ids = selectedIds().filter(function (id) { var v = findVehicle(id); return v && !TMS.activeBooking(v, bookings); });
+    if (ids.length) openBooking(ids, $('bulkGo'));
+  });
+  $('bulkSell').addEventListener('click', function () {
+    var ids = selectedIds().filter(function (id) { return !activeListing(id); });
+    if (!ids.length) { TMS.toast('These vehicles are already listed for sale.'); return; }
+    openSellMany(ids, $('bulkSell'));
+  });
+  $('batchUndo').addEventListener('click', function () {
+    if (!lastBatch) return;
+    var ids = lastBatch;
+    TMS.save('bookings', TMS.load('bookings').filter(function (b) { return ids.indexOf(b.id) === -1; }));
+    lastBatch = null;
+    $('batchDone').hidden = true;
+    renderAll();
+    $('selAll').focus();
+  });
+
+  // ======================= BOOKING DIALOG =======================
+  var dlg = $('book'), dlgForm = $('bookForm'), pending = null, opener = null;
+  var days = TMS.workdays(3);
+  $('dayChoices').innerHTML = days.map(function (d, n) {
+    var label = TMS.fmtDay(d);
+    return '<span class="choice"><input class="sr-only" type="radio" name="day" id="d' + n + '" value="' + label + '"' + (n === 0 ? ' checked' : '') + '>' +
+           '<label for="d' + n + '">' + label + '</label></span>';
+  }).join('');
+
+  var TASK = { Fahas: 'Take the car to its Fahas inspection', Insurance: 'Renew the insurance policy online (no pickup needed)', 'Oil service': 'Do the oil service' };
+  function jobsFor(v, bookings) {
+    var st = stateOf(v, bookings);
+    var jobs = st.due.map(function (d) { return d.what; });
+    if (!jobs.length && st.nextJob) jobs = [st.nextJob.what];  // nothing due yet: do the next one early
+    return jobs;
+  }
+  function openBooking(ids, from) {
+    var bookings = TMS.load('bookings');
+    var list = ids.map(findVehicle).filter(Boolean);
+    if (!list.length) return;
+    pending = list.map(function (v) { return { id: v.id, jobs: jobsFor(v, bookings) }; });
+    opener = from;
+    dlgForm.reset();                       // start from the defaults: the user can just press Confirm
+    // insurance only: we renew it online, so there is no pickup to choose
+    var online = pending.every(function (p) { return onlineOnly(p.jobs); });
+    $('dayField').hidden = online; $('timeField').hidden = online;
+    $('bookGo').textContent = online ? 'Confirm renewal' : 'Confirm booking';
+    if (!BIZ) {
+      var v = list[0];
+      $('bookTitle').textContent = online ? 'Renew the insurance online' : 'Book a driver';
+      $('bookSub').textContent = TMS.vehicleName(v) + ' · ' + TMS.plate(v);
+      $('bookTasks').innerHTML = pending[0].jobs.map(function (j) { return '<li>' + (TASK[j] || j) + '</li>'; }).join('');
+      $('placeField').hidden = online;
+      $('bookCost').textContent = online ? 'Service fee SAR 30. The insurance price is charged at cost.'
+                                         : 'Service fee SAR 120. Government fees are charged at cost.';
+    } else {
+      $('bookTitle').textContent = online ? 'Renew insurance online' : list.length === 1 ? 'Book a driver' : 'Book drivers';
+      $('bookSub').textContent = list.length + (list.length === 1 ? ' vehicle selected' : ' vehicles selected');
+      $('bookTasks').innerHTML = list.map(function (v, i) {
+        return '<li>' + esc(TMS.joinNames(pending[i].jobs)) + ' · ' + esc(TMS.plate(v)) + ' · ' + esc(v.location || '') + '</li>';
+      }).join('');
+      $('placeField').hidden = true;
+      $('bookCost').textContent = 'Covered by your annual maintenance contract. Drivers collect each vehicle from its location.';
+    }
+    dlg.showModal();
+  }
+  dlgForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var day = dlgForm.elements.day.value, time = dlgForm.elements.time.value, place = dlgForm.elements.place.value;
+    var online = pending.every(function (p) { return onlineOnly(p.jobs); });
+    var all = TMS.load('bookings'), made = [];
+    pending.forEach(function (p) {
+      var v = findVehicle(p.id); if (!v || TMS.activeBooking(v, all)) return;
+      var web = onlineOnly(p.jobs);
+      var b = { id: TMS.uid('b'), owner: user.email, vehicleId: v.id, customer: user.company || user.name, car: TMS.vehicleName(v),
+                plate: TMS.plate(v), jobs: p.jobs, job: TMS.joinNames(p.jobs), day: web ? '' : day, time: web ? '' : time,
+                place: web ? 'Online' : BIZ ? (v.location || 'Company site') : place, driver: null, status: 'waiting' };
+      all.push(b); made.push(b.id);
+    });
+    TMS.save('bookings', all);
+    opener = null;
+    dlg.close();
+    if (!BIZ) {
+      renderAll(); focusIn(pending[0].id, '[data-cancel]');
+    } else {
+      selected = {};
+      renderAll();
+      lastBatch = made;
+      $('batchText').innerHTML = online
+        ? '<b>Insurance renewal requested</b> for ' + made.length + (made.length === 1 ? ' vehicle' : ' vehicles') + '. No pickup is needed.'
+        : '<b>Drivers booked</b> for ' + made.length + (made.length === 1 ? ' vehicle' : ' vehicles') + ' on ' + esc(day + ', ' + time) + '.';
+      $('batchDone').hidden = false;
+      $('batchUndo').focus();
+    }
+  });
+  $('bookCancel').addEventListener('click', function () { dlg.close(); });
+  dlg.addEventListener('close', function () { if (opener && document.contains(opener)) opener.focus(); opener = null; });
+
+  // ======================= ADD OR EDIT A CAR =======================
+  var carDlg = $('carDlg'), carForm = $('carForm'), editingId = null, carOpener = null, addedCount = 0;
+  (function fillMenus() {
+    var y = T.getFullYear() + 1, opts = '<option value="">Choose the year</option>';
+    for (var i = y; i >= 1990; i--) opts += '<option>' + i + '</option>';
+    $('cYear').innerHTML = opts;
+    $('cColour').innerHTML = TMS.COLOURS.map(function (c) { return '<option value="' + c[1] + '">' + c[0] + '</option>'; }).join('');
+  })();
+  $('cLocationField').hidden = !BIZ;
+  $('carAnother').hidden = !BIZ;
+
+  var FIELDS = ['cMake', 'cModel', 'cYear', 'cPlate', 'cKm', 'cLocation', 'cIst', 'cFah', 'cIns', 'cOil'];
+  var plateAt = 'cPlateL';           // which plate box holds the mistake
+  function inputsOf(f) { return f === 'cPlate' ? [$('cPlateL'), $('cPlateN')] : [$(f)]; }
+  function setError(f, message) {
+    var box = $(f + 'Error');
+    box.querySelector('span').textContent = message || '';
+    box.hidden = !message;
+    inputsOf(f).forEach(function (input) {
+      var bad = message && (f !== 'cPlate' || input.id === plateAt);
+      if (bad) input.setAttribute('aria-invalid', 'true'); else input.removeAttribute('aria-invalid');
+    });
+  }
+  function clean(id) { return $(id).value.trim(); }
+  function digits(id) { return clean(id).replace(/[,\s]/g, ''); }
+
+  function checkCar() {
+    var e = {};
+    if (!clean('cMake')) e.cMake = 'Enter the make, for example Toyota.';
+    if (!clean('cModel')) e.cModel = 'Enter the model, for example Camry.';
+    if (!clean('cYear')) e.cYear = 'Choose the year.';
+    var L = clean('cPlateL').toUpperCase().replace(/[\s\-.]/g, ''), N = digits('cPlateN');
+    var bad = L.split('').filter(function (ch) { return TMS.PLATE_LETTERS.indexOf(ch) === -1; });
+    e.plateAt = plateAt = (!L || !/^[A-Z]{3}$/.test(L) || bad.length) ? 'cPlateL' : 'cPlateN';
+    if (!L || !N) e.cPlate = 'Enter the 3 letters and the numbers of the plate.';
+    else if (!/^[A-Z]{3}$/.test(L)) e.cPlate = 'The plate needs exactly 3 letters, for example A J K.';
+    else if (bad.length) e.cPlate = 'Saudi plates do not use the letter ' + bad[0] + '. They use: ' + TMS.PLATE_LETTERS.split('').join(' ') + '.';
+    else if (!/^\d{1,4}$/.test(N)) e.cPlate = 'The plate number is 1 to 4 digits, for example 2847.';
+    else if (myVehicles().some(function (x) { return x.id !== editingId && x.plateL === L && String(x.plateN) === N; }))
+      e.cPlate = 'You already added a ' + CAR + ' with this plate.';
+    var km = digits('cKm');
+    if (!km) e.cKm = 'Enter the kilometres.';
+    else if (!/^\d+$/.test(km)) e.cKm = 'Use numbers only, for example 51240.';
+    else if (Number(km) > 2000000) e.cKm = 'That is more than 2,000,000 km. Check the number.';
+    if (BIZ && !clean('cLocation')) e.cLocation = 'Enter where the vehicle is kept, for example Yanbu depot.';
+    [['cIst', 'Istimara'], ['cFah', 'Fahas'], ['cIns', 'insurance']].forEach(function (f) {
+      var raw = clean(f[0]), d = TMS.parseISO(raw);
+      if (!raw) e[f[0]] = 'Choose the ' + f[1] + ' expiry date.';
+      else if (!d || d.getFullYear() < 2000 || d.getFullYear() > 2045) e[f[0]] = 'Choose a real date, for example ' + TMS.fmt(TMS.addDays(T, 90)) + '.';
+    });
+    var oil = digits('cOil');
+    if (oil) {
+      if (!/^\d+$/.test(oil)) e.cOil = 'Use numbers only, or leave it empty.';
+      else if (/^\d+$/.test(km) && Number(oil) > Number(km)) e.cOil = 'This can’t be more than the ' + CAR + '’s kilometres now.';
+    }
+    return e;
+  }
+  function showErrors(e) {
+    var first = null;
+    FIELDS.forEach(function (f) {
+      setError(f, e[f] || '');
+      if (e[f] && !first) first = f === 'cPlate' ? $(e.plateAt) : $(f);
+    });
+    return first;
+  }
+  // once an error shows, check again while typing, so it clears as soon as it is fixed
+  carForm.addEventListener('input', function (ev) {
+    var f = ev.target.id === 'cPlateL' || ev.target.id === 'cPlateN' ? 'cPlate' : ev.target.id;
+    if (FIELDS.indexOf(f) > -1 && !$(f + 'Error').hidden) setError(f, checkCar()[f] || '');
+  });
+  carForm.addEventListener('change', function (ev) {
+    var f = ev.target.id;
+    if (FIELDS.indexOf(f) > -1 && !$(f + 'Error').hidden) setError(f, checkCar()[f] || '');
+  });
+  $('cPlateL').addEventListener('input', function () {
+    var pos = this.selectionStart, up = this.value.toUpperCase();
+    if (up !== this.value) { this.value = up; try { this.setSelectionRange(pos, pos); } catch (err) {} }
+  });
+
+  function resetCarForm() {
+    carForm.reset();
+    FIELDS.forEach(function (f) { setError(f, ''); });
+    $('cColour').value = '#ffffff';
+  }
+  function openCar(id, from) {
+    editingId = id || null; carOpener = from; addedCount = 0;
+    resetCarForm();
+    $('carAdded').hidden = true;
+    var v = id ? findVehicle(id) : null;
+    if (v) {
+      $('carTitle').textContent = 'Edit ' + TMS.vehicleName(v);
+      $('carSub').textContent = TMS.plate(v) + '. Change anything, then save.';
+      $('cMake').value = v.make; $('cModel').value = v.model; $('cYear').value = String(v.year);
+      $('cColour').value = v.body || '#ffffff';
+      $('cPlateL').value = v.plateL; $('cPlateN').value = v.plateN;
+      $('cKm').value = v.km; $('cLocation').value = v.location || '';
+      $('cIst').value = v.istimara || ''; $('cFah').value = v.fahas || ''; $('cIns').value = v.insurance || '';
+      $('cOil').value = v.oilKm === null || v.oilKm === undefined ? '' : v.oilKm;
+      $('carSave').textContent = 'Save changes';
+      $('carAnother').hidden = true;
+    } else {
+      $('carTitle').textContent = BIZ ? 'Add a vehicle' : 'Add a car';
+      $('carSub').textContent = 'We use these details to remind you before each date.';
+      $('carSave').textContent = BIZ ? 'Save vehicle' : 'Save car';
+      $('carAnother').hidden = !BIZ;
+    }
+    carDlg.showModal();
+    $('cMake').focus();
+  }
+  function saveCar(another) {
+    var errs = checkCar(), first = showErrors(errs);
+    if (first) { first.focus(); return; }
+    var v = editingId ? findVehicle(editingId) : null;
+    var isNew = !v;
+    if (!v) v = { id: TMS.uid('v'), owner: user.email, history: [], self: null };
+    v.make = clean('cMake').replace(/\s+/g, ' ');
+    v.model = clean('cModel').replace(/\s+/g, ' ');
+    v.year = Number(clean('cYear'));
+    v.body = $('cColour').value;
+    v.plateL = clean('cPlateL').toUpperCase().replace(/[\s\-.]/g, '');
+    v.plateN = digits('cPlateN');
+    v.km = Number(digits('cKm'));
+    v.location = BIZ ? clean('cLocation') : '';
+    v.istimara = clean('cIst'); v.fahas = clean('cFah'); v.insurance = clean('cIns');
+    v.oilKm = digits('cOil') ? Number(digits('cOil')) : null;
+    saveVehicle(v);
+    renderAll();
+    var name = TMS.vehicleName(v);
+    if (another) {
+      addedCount++;
+      resetCarForm();
+      $('carAdded').textContent = name + ' (' + TMS.plate(v) + ') is added' + (addedCount > 1 ? ', ' + addedCount + ' vehicles so far' : '') + '. Add the next one.';
+      $('carAdded').hidden = false;
+      $('cMake').focus();
+      return;
+    }
+    carOpener = null;
+    carDlg.close();
+    if (BIZ) { var btn = document.querySelector('[data-edit="' + v.id + '"]'); if (btn) btn.focus(); }
+    else focusIn(v.id, '[data-edit]');
+    TMS.toast(isNew ? name + ' is added. We will remind you before each date.' : 'Changes to the ' + name + ' are saved.');
+  }
+  carForm.addEventListener('submit', function (e) { e.preventDefault(); saveCar(false); });
+  $('carAnother').addEventListener('click', function () { saveCar(true); });
+  $('carCancel').addEventListener('click', function () { carDlg.close(); });
+  carDlg.addEventListener('close', function () {
+    if (addedCount) TMS.toast(addedCount === 1 ? '1 vehicle added.' : addedCount + ' vehicles added.');
+    if (carOpener && document.contains(carOpener)) carOpener.focus();
+    else if (!$('addBtn').hidden) $('addBtn').focus();
+    carOpener = null; addedCount = 0;
+  });
+  $('addBtn').addEventListener('click', function () { openCar(null, $('addBtn')); });
+  $('emptyAdd').addEventListener('click', function () { openCar(null, $('emptyAdd')); });
+
+  // ======================= REMOVE A CAR (asks first, then offers Undo) =======================
+  var rmDlg = $('rmDlg'), rmId = null, rmOpener = null;
+  function openRemove(id, from) {
+    var v = findVehicle(id); if (!v) return;
+    rmId = id; rmOpener = from;
+    var name = TMS.vehicleName(v), b = TMS.activeBooking(v), l = activeListing(id);
+    $('rmTitle').textContent = 'Remove the ' + name + '?';
+    $('rmText').textContent = TMS.plate(v) + '. Its reminders and records will be deleted.' +
+      (b ? ' Its driver booking will be cancelled.' : '') +
+      (l && (l.status === 'live' || l.status === 'pending') ? ' Its listing on Cars for sale will be removed.' : '');
+    $('rmGo').textContent = 'Remove ' + CAR;
+    rmDlg.showModal();
+    $('rmCancel').focus();         // the safe choice has the focus
+  }
+  $('rmGo').addEventListener('click', function () {
+    var v = findVehicle(rmId); if (!v) { rmDlg.close(); return; }
+    var bookingsBefore = TMS.load('bookings'), listingsBefore = TMS.load('listings');
+    TMS.save('vehicles', allVehicles().filter(function (x) { return x.id !== v.id; }));
+    TMS.save('bookings', bookingsBefore.filter(function (b) { return !(b.vehicleId === v.id && b.status !== 'done'); }));
+    TMS.save('listings', listingsBefore.map(function (l) {
+      if (l.vehicleId === v.id && (l.status === 'live' || l.status === 'pending')) l.status = 'removed';
+      return l;
+    }));
+    delete selected[v.id];
+    rmOpener = null;
+    rmDlg.close();
+    renderAll();
+    $(myVehicles().length ? 'addBtn' : 'emptyAdd').focus();
+    TMS.toast(TMS.vehicleName(v) + ' is removed.', function () {
+      saveVehicle(v); TMS.save('bookings', bookingsBefore); TMS.save('listings', listingsBefore); renderAll();
+    });
+  });
+  $('rmCancel').addEventListener('click', function () { rmDlg.close(); });
+  rmDlg.addEventListener('close', function () { if (rmOpener && document.contains(rmOpener)) rmOpener.focus(); rmOpener = null; });
+
+  // ======================= SELL ONE CAR =======================
+  var sellDlg = $('sell'), sellForm = $('sellForm'), sellId = null, sellOpener = null, sellPhoto = '', photoBusy = false;
+
+  function parsePrice(text) {
+    var cleanText = String(text).replace(/sar/i, '').replace(/[,\s]/g, '');
+    if (!cleanText) return { error: 'Enter your price.' };
+    if (!/^\d+$/.test(cleanText)) return { error: 'Use numbers only, for example 68000.' };
+    var n = Number(cleanText);
+    if (n < 1000) return { error: 'The lowest price is SAR 1,000.' };
+    if (n > 5000000) return { error: 'The highest price is SAR 5,000,000.' };
+    return { value: n };
+  }
+  function setPriceError(input, box, message) {
+    if (message) { box.querySelector('span').textContent = message; box.hidden = false; input.setAttribute('aria-invalid', 'true'); }
+    else { box.hidden = true; input.removeAttribute('aria-invalid'); }
+  }
+
+  function accidentChoice() { var r = sellForm.querySelector('input[name="accident"]:checked'); return r ? r.value : ''; }
+  function setAccidentError(message) {
+    var box = $('sellAccidentError');
+    box.querySelector('span').textContent = message;
+    box.hidden = !message;
+  }
+  sellForm.addEventListener('change', function (e) { if (e.target.name === 'accident') setAccidentError(''); });
+
+  function openSell(id, from) {
+    var v = findVehicle(id); if (!v) return;
+    sellId = id; sellOpener = from; sellPhoto = ''; photoBusy = false;
+    sellForm.reset();
+    setPriceError($('sellPrice'), $('sellPriceError'), '');
+    setAccidentError('');
+    $('sellPreview').hidden = true; $('sellPreview').innerHTML = '';
+    $('sellPhotosHint').textContent = 'Without a photo, buyers see a drawing of the car.';
+    var recs = v.history || [];
+    var verified = recs.filter(function (h) { return h.verified; }).length;
+    $('sellTitle').textContent = 'Sell your ' + TMS.vehicleName(v);
+    $('sellSub').textContent = TMS.plate(v) + ' · the plate number is not shown to buyers';
+    $('sellFacts').innerHTML =
+      '<dt>Year</dt><dd>' + esc(v.year) + '</dd>' +
+      '<dt>Kilometres</dt><dd class="num">' + TMS.km(v.km) + '</dd>' +
+      '<dt>Full history</dt><dd>' + (recs.length ? recs.length + ' records, ' + verified + ' verified' : 'No records yet') + '</dd>';
+    $('sellHandleHint').textContent = BIZ
+      ? 'Checks, ownership transfers and deliveries are covered by your annual contract.'
+      : 'Our driver checks the car and delivers it to the buyer after you transfer ownership in Absher. SAR 120, paid from the buyer’s deposit.';
+    sellDlg.showModal();
+    $('sellPrice').focus();
+  }
+
+  $('sellPhotos').addEventListener('change', function () {
+    var file = this.files && this.files[0];
+    sellPhoto = '';
+    $('sellPreview').hidden = true; $('sellPreview').innerHTML = '';
+    if (!file) { $('sellPhotosHint').textContent = 'Without a photo, buyers see a drawing of the car.'; return; }
+    photoBusy = true;
+    $('sellPhotosHint').textContent = 'Preparing the photo…';
+    TMS.photoFromFile(file).then(function (url) {
+      sellPhoto = url; photoBusy = false;
+      $('sellPreview').innerHTML = '<img src="' + url + '" alt="The photo buyers will see">';
+      $('sellPreview').hidden = false;
+      $('sellPhotosHint').textContent = 'Buyers will see this photo.';
+    }, function () {
+      photoBusy = false;
+      $('sellPhotosHint').textContent = 'This file is not a photo we can use. Choose a JPG or PNG picture.';
+    });
+  });
+  $('sellPrice').addEventListener('input', function () {
+    if (this.hasAttribute('aria-invalid')) setPriceError(this, $('sellPriceError'), parsePrice(this.value).error || '');
+  });
+
+  sellForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var p = parsePrice($('sellPrice').value);
+    setPriceError($('sellPrice'), $('sellPriceError'), p.error || '');
+    var acc = accidentChoice();
+    setAccidentError(acc ? '' : 'Choose No, Yes or I don’t know.');
+    if (p.error) { $('sellPrice').focus(); return; }
+    if (!acc) { $('accNo').focus(); return; }
+    if (photoBusy) { $('sellPhotosHint').textContent = 'One moment: the photo is still being prepared.'; return; }
+    var v = findVehicle(sellId); if (!v) { sellDlg.close(); return; }
+    var id = addListing(v, p.value, $('sellCity').value, $('sellHandle').checked, sellPhoto, acc, $('sellNotes').value.trim().replace(/\s+/g, ' '));
+    sellOpener = null;
+    sellDlg.close();
+    renderAll();
+    focusIn(v.id, '.vsell button, .vsell a');
+    TMS.toast('Listed. Our team will check it, then it goes public.', function () { removeListing(id); renderAll(); });
+  });
+  $('sellCancel').addEventListener('click', function () { sellDlg.close(); });
+  sellDlg.addEventListener('close', function () { if (sellOpener && document.contains(sellOpener)) sellOpener.focus(); sellOpener = null; });
+
+  function addListing(v, price, city, handle, photo, accident, notes) {
+    var all = TMS.load('listings');
+    var id = TMS.uid('l');
+    all.push({ id: id, make: v.make, model: v.model, year: v.year, km: v.km, price: price, city: city, body: v.body || '#ffffff',
+               seller: user.company || TMS.firstName(user.name), sellerType: BIZ ? 'company' : 'individual',
+               sellerEmail: user.email, vehicleId: v.id, status: 'pending', handle: handle, plate: TMS.plate(v),
+               listed: TMS.fmt(T), history: TMS.clone(v.history || []), photo: photo || '',
+               accident: accident || 'unknown', accidentNotes: notes || '' });
+    TMS.save('listings', all);
+    return id;
+  }
+  function removeListing(id) {
+    TMS.save('listings', TMS.load('listings').filter(function (l) { return l.id !== id; }));
+  }
+  function unlist(id) {
+    var before = TMS.findListing(id);
+    if (!before) return;
+    TMS.updateListing(id, { status: 'removed' });
+    renderAll();
+    TMS.toast('Listing removed.', function () { TMS.updateListing(id, { status: before.status }); renderAll(); });
+  }
+
+  // ======================= SELL MANY (companies) =======================
+  var manyDlg = $('sellMany'), manyForm = $('sellManyForm'), manyIds = [], manyOpener = null;
+  function openSellMany(ids, from) {
+    manyIds = ids; manyOpener = from;
+    manyForm.reset();
+    $('sellManyError').hidden = true;
+    $('sellManyTitle').textContent = ids.length === 1 ? 'Sell 1 vehicle' : 'Sell ' + ids.length + ' vehicles';
+    $('sellManyGo').textContent = ids.length === 1 ? 'List vehicle' : 'List ' + ids.length + ' vehicles';
+    $('sellManyRows').innerHTML = ids.map(function (id, k) {
+      var v = findVehicle(id);
+      return '<tr><td><b>' + esc(TMS.vehicleName(v)) + '</b><span class="cellsub">' + esc(v.year) + ' · ' + TMS.km(v.km) + ' · ' + esc(TMS.plate(v)) + '</span></td>' +
+             '<td><label class="sr-only" for="mp' + k + '">Price for ' + esc(TMS.plate(v)) + '</label>' +
+             '<div class="prefix"><span>SAR</span><input id="mp' + k + '" type="text" inputmode="numeric" autocomplete="off"></div>' +
+             '<label class="sr-only" for="ma' + k + '">Has ' + esc(TMS.plate(v)) + ' had an accident?</label>' +
+             '<select id="ma' + k + '"><option value="">Accident? Choose…</option><option value="no">No accidents</option>' +
+             '<option value="yes">Had an accident</option><option value="unknown">I don’t know</option></select></td></tr>';
+    }).join('');
+    manyDlg.showModal();
+    $('mp0').focus();
+  }
+  manyForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var firstBad = null, prices = [];
+    manyIds.forEach(function (id, k) {
+      var input = $('mp' + k), p = parsePrice(input.value);
+      if (p.error) { input.setAttribute('aria-invalid', 'true'); if (!firstBad) firstBad = { input: input, msg: p.error, plate: TMS.plate(findVehicle(id)) }; }
+      else { input.removeAttribute('aria-invalid'); prices[k] = p.value; }
+      var acc = $('ma' + k);
+      if (!acc.value) { acc.setAttribute('aria-invalid', 'true'); if (!firstBad) firstBad = { input: acc, msg: 'Choose if it had an accident.', plate: TMS.plate(findVehicle(id)), acc: true }; }
+      else acc.removeAttribute('aria-invalid');
+    });
+    if (firstBad) {
+      var box = $('sellManyError');
+      box.querySelector('span').textContent = (firstBad.acc ? 'Check ' : 'Check the price for ') + firstBad.plate + '. ' + firstBad.msg;
+      box.hidden = false;
+      firstBad.input.focus();
+      return;
+    }
+    var cityOf = function (v) { var m = /(Riyadh|Jeddah|Makkah|Madinah|Dammam|Yanbu)/i.exec(v.location || ''); return m ? cap(m[1].toLowerCase()) : 'Yanbu'; };
+    var ids = manyIds.map(function (id, k) {
+      var v = findVehicle(id);
+      return addListing(v, prices[k], cityOf(v), $('sellManyHandle').checked, '', $('ma' + k).value, '');
+    });
+    selected = {};
+    manyOpener = null;
+    manyDlg.close();
+    renderAll();
+    TMS.toast((ids.length === 1 ? '1 vehicle listed' : ids.length + ' vehicles listed') + '. Our team will check them, then they go public.',
+      function () { ids.forEach(removeListing); renderAll(); });
+  });
+  $('sellManyCancel').addEventListener('click', function () { manyDlg.close(); });
+  manyDlg.addEventListener('close', function () { if (manyOpener && document.contains(manyOpener)) manyOpener.focus(); manyOpener = null; });
+
+  // ======================= MY LISTINGS TABLE =======================
+  function renderListings() {
+    var list = myListings().filter(function (l) { return l.status !== 'removed'; });
+    if (!list.length) {
+      $('listWrap').innerHTML = '<p class="empty">You are not selling any ' + CAR + 's yet. Press “' + (BIZ ? 'Sell selected' : 'Sell this car') + '” above.</p>';
+      return;
+    }
+    $('listWrap').innerHTML = '<div class="scroll"><table><thead><tr><th>Car</th><th>Price</th><th>Status</th><th>Listed</th><th>Actions</th></tr></thead><tbody>' +
+      list.map(function (l) {
+        var acts = [];
+        if (l.status === 'live') acts.push('<a href="car.html#' + esc(l.id) + '">View listing</a>');
+        if (l.status === 'live' || l.status === 'pending') acts.push('<button type="button" class="linkbtn" data-unlist="' + esc(l.id) + '">Remove</button>');
+        return '<tr><td><b>' + esc(l.year + ' ' + l.make + ' ' + l.model) + '</b><span class="cellsub">' + esc(l.plate || '') + ' · ' + esc(l.city) + '</span></td>' +
+               '<td class="money">' + TMS.sar(l.price) + '</td><td>' + statusPill(l) + (l.handle ? '<span class="cellsub">We handle the sale</span>' : '') + '</td>' +
+               '<td class="nowrap">' + esc(l.listed) + '</td><td><span class="acts">' + (acts.join(' ') || '<span class="muted">No action needed</span>') + '</span></td></tr>';
+      }).join('') + '</tbody></table></div>';
+  }
+  $('listWrap').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-unlist]');
+    if (b) unlist(b.getAttribute('data-unlist'));
+  });
+
+  // ======================= START: wait for the data, then follow every change live =======================
+  TMS.ready(function () {
+    if (TMS.storageOK && TMS.user() && !TMS.findUser(user.email)) {
+      // the account is gone (for example, the admin reset the example data)
+      TMS.signOut();
+      TMS.askLogin('vehicles.html', 'We could not find your account. Log in again, or create a new account.');
+      return;
+    }
+    $('loading').hidden = true;
+    renderAll();
+    TMS.onChange(function () { renderAll(); });
+  });
+})();
+</script>
+</body>
+</html>

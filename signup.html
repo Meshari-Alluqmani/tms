@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Create account · Transport Management System</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" type="image/png" href="icon-64.png">
+<script src="supabase.js"></script>
+<script src="app.js"></script>
+<script src="ar.js"></script>
+</head>
+<body class="auth">
+<a class="skip" href="#main">Skip to main content</a>
+
+<header class="topbar">
+  <div class="container">
+    <a class="brand" href="index.html">
+      <img class="logo" src="logo.png" alt="" width="52" height="52">
+      <span>Transport Management System</span>
+    </a>
+    <nav class="topnav" aria-label="Main">
+      <a href="market.html">Cars for sale</a>
+    </nav>
+    <div class="tools">
+      <div data-display></div>
+      <div data-auth="login"></div>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <div class="card panel">
+    <h1>Create your account</h1>
+    <p class="muted">It takes one minute. We use your name to greet you each time you log in.</p>
+
+    <!-- Form fill-in (Module 5): meaningful title, familiar labels, logical order,
+         error messages next to the field, and a clear "how to finish" button -->
+    <form id="signupForm" novalidate>
+      <fieldset class="field">
+        <legend>Account type</legend>
+        <div class="segmented">
+          <input class="sr-only" type="radio" name="type" id="typeInd" value="individual" checked>
+          <label for="typeInd">Individual</label>
+          <input class="sr-only" type="radio" name="type" id="typeBiz" value="business">
+          <label for="typeBiz">Business</label>
+        </div>
+        <p class="hint" id="typeHint">For one car, or your family's cars.</p>
+      </fieldset>
+
+      <div class="field">
+        <label for="name">Your name</label>
+        <input id="name" name="name" type="text" autocomplete="name" aria-describedby="nameError">
+        <p class="error" id="nameError" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+          <span></span>
+        </p>
+      </div>
+
+      <div class="field" id="companyField" hidden>
+        <label for="company">Company name</label>
+        <input id="company" name="company" type="text" autocomplete="organization" aria-describedby="companyError">
+        <p class="error" id="companyError" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+          <span></span>
+        </p>
+      </div>
+
+      <div class="field">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" autocomplete="email" inputmode="email" aria-describedby="emailError">
+        <p class="error" id="emailError" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+          <span></span>
+        </p>
+      </div>
+
+      <div class="field">
+        <label for="password">Password</label>
+        <div class="pw">
+          <input id="password" name="password" type="password" autocomplete="new-password" aria-describedby="passwordHint passwordError">
+          <button type="button" class="btn secondary" id="togglePw" aria-controls="password" aria-pressed="false">Show</button>
+        </div>
+        <p class="hint" id="passwordHint">At least 6 characters.</p>
+        <p class="error" id="passwordError" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+          <span></span>
+        </p>
+      </div>
+
+      <div class="submit">
+        <button class="btn block" type="submit">Create account</button>
+      </div>
+    </form>
+
+    <p class="after">Already have an account? <a href="login.html" id="toLogin">Log in</a></p>
+    <p class="note">Prototype: no emails are sent, so a made-up email is fine. Your password is kept safely by the database.</p>
+  </div>
+</main>
+
+<footer class="footer">
+  <div class="container">
+    <p>Transport Management System · CS379 project prototype.</p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var form = document.getElementById('signupForm');
+  var name = document.getElementById('name');
+  var company = document.getElementById('company');
+  var email = document.getElementById('email');
+  var pw = document.getElementById('password');
+  var typeBiz = document.getElementById('typeBiz');
+
+  // Business accounts also need the company name
+  function syncType() {
+    var biz = typeBiz.checked;
+    document.getElementById('companyField').hidden = !biz;
+    document.getElementById('typeHint').textContent = biz
+      ? 'For a company fleet under one annual contract.'
+      : 'For one car, or your family’s cars.';
+  }
+  if (TMS.param() === 'business') typeBiz.checked = true;
+  form.addEventListener('change', function (e) { if (e.target.name === 'type') syncType(); });
+  syncType();
+
+  function setError(input, message) {
+    var box = document.getElementById(input.id + 'Error');
+    if (message) {
+      box.querySelector('span').textContent = message;
+      box.hidden = false;
+      input.setAttribute('aria-invalid', 'true');
+    } else {
+      box.hidden = true;
+      input.removeAttribute('aria-invalid');
+    }
+  }
+
+  var checks = {
+    name: function () {
+      var v = name.value.trim();
+      if (!v) return 'Enter your name, so we can greet you.';
+      if (v.length < 2) return 'Your name needs at least 2 letters.';
+      return '';
+    },
+    company: function () {
+      if (!typeBiz.checked) return '';
+      return company.value.trim() ? '' : 'Enter your company name.';
+    },
+    email: function () {
+      var v = email.value.trim();
+      if (!v) return 'Enter your email address.';
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return 'Enter a full email address, for example name@example.com.';
+      if (TMS.isStaff(v)) return 'This is a staff email. Staff accounts are made by the system admin.';
+      if (TMS.mode() !== 'supabase' && TMS.findUser(v)) return 'There is already an account with this email. Log in instead.';
+      return '';
+    },
+    password: function () {
+      if (!pw.value) return 'Choose a password.';
+      if (pw.value.length < 6) return 'Your password needs at least 6 characters.';
+      return '';
+    }
+  };
+  var inputs = { name: name, company: company, email: email, password: pw };
+
+  // once an error shows, check again while the user types, so it clears as soon as it is fixed
+  Object.keys(inputs).forEach(function (k) {
+    inputs[k].addEventListener('input', function () {
+      if (inputs[k].hasAttribute('aria-invalid')) setError(inputs[k], checks[k]());
+    });
+  });
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (form.querySelector('button[type="submit"]').disabled) return;
+    TMS.ready(createAccount);        // wait for the database connection first
+  });
+  function createAccount() {
+    var first = null;
+    Object.keys(inputs).forEach(function (k) {
+      var msg = checks[k]();
+      setError(inputs[k], msg);
+      if (msg && !first) first = inputs[k];
+    });
+    if (first) { first.focus(); return; }
+
+    var type = typeBiz.checked ? 'business' : 'individual';
+    var user = {
+      name: name.value.trim().replace(/\s+/g, ' '),
+      email: email.value.trim().toLowerCase(),
+      type: type,
+      company: type === 'business' ? company.value.trim() : ''
+    };
+    user.password = pw.value;
+    var btn = form.querySelector('button[type="submit"]');
+    btn.disabled = true; btn.textContent = 'Creating your account…';
+    TMS.signUp(user).then(function () {
+      TMS.go(TMS.takeNext() || 'vehicles.html');
+    }).catch(function (err) {
+      btn.disabled = false; btn.textContent = 'Create account';
+      var input = err && err.field === 'email' ? email : pw;
+      setError(input, (err && err.message) || 'Something went wrong. Please try again.');
+      input.focus();
+    });
+  }
+
+  var toggle = document.getElementById('togglePw');
+  toggle.addEventListener('click', function () {
+    var show = pw.type === 'password';
+    pw.type = show ? 'text' : 'password';
+    toggle.textContent = show ? 'Hide' : 'Show';
+    toggle.setAttribute('aria-pressed', String(show));
+  });
+})();
+</script>
+</body>
+</html>
