@@ -115,6 +115,15 @@
     </section>
 
     <!-- ================= MY LISTINGS: cars this user is selling ================= -->
+    <!-- ================= MY PURCHASES: each step until a bought car is yours ================= -->
+    <section aria-labelledby="buyTitle" id="buySection" hidden>
+      <div class="subhead">
+        <h2 id="buyTitle">My purchases</h2>
+        <p>Cars you are buying. We show each step until the car is yours.</p>
+      </div>
+      <div class="buylist" id="buyWrap"></div>
+    </section>
+
     <section aria-labelledby="listTitle" id="listSection" hidden>
       <div class="subhead">
         <h2 id="listTitle">My listings</h2>
@@ -489,6 +498,7 @@
       ? (user.company || 'Company fleet') + ' · ' + mine.length + (mine.length === 1 ? ' vehicle' : ' vehicles') + ' · reminders as of ' + TMS.longDate(T)
       : 'Reminders as of ' + TMS.longDate(T);
     if (BIZ) renderFleet(mine, bookings); else renderCards(mine, bookings);
+    renderPurchases();
     renderListings();
   }
 
@@ -523,6 +533,11 @@
     '</div>';
   }
   function footer(v, st) {
+    // a bought car arrives without its plate and dates: ask for them first
+    if (!v.plateL || (!v.istimara && !v.fahas && !v.insurance)) {
+      return '<p class="ask"><b>Welcome to your new car.</b> Add its plate and the Istimara, Fahas and insurance dates, so we can remind you.</p>' +
+             '<div class="btns"><button type="button" class="btn" data-edit="' + v.id + '">Add the details</button></div>';
+    }
     var main = jobFooter(v, st), ist = istimaraNote(v, st);
     return main && ist ? main + '<hr class="split">' + ist : main || ist;
   }
@@ -1166,6 +1181,37 @@
   });
   $('sellManyCancel').addEventListener('click', function () { manyDlg.close(); });
   manyDlg.addEventListener('close', function () { if (manyOpener && document.contains(manyOpener)) manyOpener.focus(); manyOpener = null; });
+
+  // ======================= MY PURCHASES =======================
+  function myPurchases() { return TMS.load('payments').filter(function (p) { return p.buyerEmail === user.email; }).reverse(); }
+  var STEP = { done: ['green', 'Done'], now: ['amber', 'Waiting'], you: ['blue', 'Your turn'], next: ['grey', 'Next'] };
+  function step(state, title, text) {
+    return '<li>' + pill(STEP[state][0], STEP[state][1]) + '<span><b>' + title + '</b><span class="t">' + text + '</span></span></li>';
+  }
+  function renderPurchases() {
+    var list = myPurchases(), bookings = TMS.load('bookings'), mine = myVehicles();
+    $('buySection').hidden = list.length === 0;
+    if (!list.length) return;
+    $('buyWrap').innerHTML = list.map(function (p) {
+      var l = TMS.findListing(p.listingId) || {};
+      var b = bookings.filter(function (x) { return x.id === 'd' + p.id; })[0];
+      var car = mine.filter(function (v) { return v.id === 'v' + p.id || (l.vehicleId && v.id === l.vehicleId); })[0];
+      var moved = p.status === 'paid';
+      var rest = Math.max((p.carPrice || 0) - Math.min(TMS.DEPOSIT, p.carPrice || 0), 0);
+      var steps = step('done', 'Deposit paid', esc([TMS.sar(p.amount), p.date, 'Receipt ' + p.receipt].join(' · '))) +
+        (moved
+          ? step('done', 'Ownership transfer in Absher', car ? 'The car is now in your vehicles.' : 'The car is yours.')
+          : step('now', 'Ownership transfer in Absher', esc('The seller starts it. You accept it and pay the rest, ' + TMS.sar(rest) + ', into the Dhamen account within 72 hours.')));
+      if (b) {
+        steps += b.status === 'done'
+          ? step('done', 'Car check and delivery', esc('Delivered on ' + (b.doneDate || '')))
+          : step(moved ? 'now' : 'next', 'Car check and delivery', esc([b.day + ', ' + b.time, b.driver ? 'Driver: ' + b.driver : 'Waiting for a driver'].join(' · ')));
+      } else {
+        steps += step(moved ? 'you' : 'next', 'Pick up the car', esc('Collect it from the seller in ' + (l.city || 'their city') + '.'));
+      }
+      return '<article class="card purchase"><h3>' + esc(p.car) + '</h3><ol class="psteps">' + steps + '</ol></article>';
+    }).join('');
+  }
 
   // ======================= MY LISTINGS TABLE =======================
   function renderListings() {

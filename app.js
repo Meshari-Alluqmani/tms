@@ -604,14 +604,14 @@
     var receipt = 'TMS-' + String(Date.now()).slice(-6);
     if (!l || l.status !== 'live') return Promise.reject({ sold: true, message: 'This car is no longer for sale' });
     if (mode !== 'supabase' || !sb) {
-      var name = l.year + ' ' + l.make + ' ' + l.model, payments = TMS.load('payments');
-      payments.push({ id: TMS.uid('p'), receipt: receipt, listingId: l.id, car: name, buyer: u.name, buyerEmail: u.email, seller: l.seller,
+      var name = l.year + ' ' + l.make + ' ' + l.model, payments = TMS.load('payments'), pid = TMS.uid('p');
+      payments.push({ id: pid, receipt: receipt, listingId: l.id, car: name, buyer: u.name, buyerEmail: u.email, seller: l.seller,
                       amount: TMS.DEPOSIT + o.fees, carPrice: l.price, kind: 'deposit', method: o.method, date: TMS.fmt(TMS.today()), status: 'held' });
       TMS.save('payments', payments);
       TMS.updateListing(l.id, { status: 'sold', buyer: u.name });
       if (o.day) {
         var bookings = TMS.load('bookings');
-        bookings.push({ id: TMS.uid('d'), owner: u.email, vehicleId: '', customer: u.name, car: name, plate: 'Delivery to buyer',
+        bookings.push({ id: 'd' + pid, owner: u.email, vehicleId: '', customer: u.name, car: name, plate: 'Delivery to buyer',
                         jobs: ['Car check + delivery'], job: 'Car check + delivery', day: o.day, time: o.time, place: o.place, driver: null, status: 'waiting' });
         TMS.save('bookings', bookings);
       }
@@ -626,6 +626,36 @@
     }, function (err) {
       throw { message: isNetwork(err) ? 'We could not reach the database. Nothing was charged. Check your internet connection and try again.' : String(err && err.message || err) };
     });
+  };
+  // Admin: the ownership transfer is done in Absher. The deposit goes to the seller, and the car
+  // moves to the buyer's "My vehicles" with its history (an example car is added without a plate).
+  TMS.completeTransfer = function (paymentId) {
+    if (mode === 'supabase' && sb) {
+      return sb.rpc('complete_transfer', { p_payment: paymentId }).then(function (r) {
+        if (r.error) { writeFailed(r.error); throw r.error; }
+        ['payments', 'vehicles', 'bookings', 'listings'].forEach(refetch);
+        return r.data;
+      });
+    }
+    var payments = TMS.load('payments'), p = payments.filter(function (x) { return x.id === paymentId; })[0];
+    if (!p || p.status !== 'held') return Promise.reject(new Error('already done'));
+    p.status = 'paid';
+    TMS.save('payments', payments);
+    var buyer = p.buyerEmail && TMS.findUser(p.buyerEmail), l = TMS.findListing(p.listingId);
+    if (!buyer || !l) return Promise.resolve('paid');
+    var rec = { date: TMS.fmt(TMS.today()), type: 'Ownership', detail: 'Ownership transferred in Absher', verified: true };
+    var vehicles = TMS.load('vehicles'), v = vehicles.filter(function (x) { return x.id === l.vehicleId; })[0];
+    if (v) {
+      TMS.save('bookings', TMS.load('bookings').filter(function (b) { return !(b.vehicleId === v.id && b.status !== 'done'); }));
+      v.owner = buyer.email; v.location = ''; v.self = null; v.history = [rec].concat(v.history || []);
+      TMS.save('vehicles', vehicles);
+      return Promise.resolve('moved');
+    }
+    vehicles.push({ id: 'v' + p.id, owner: buyer.email, make: l.make, model: l.model, year: l.year, body: l.body || '#ffffff',
+                    plateL: null, plateN: null, km: l.km, location: '', istimara: null, fahas: null, insurance: null, oilKm: null,
+                    history: [rec].concat(l.history || []), self: null });
+    TMS.save('vehicles', vehicles);
+    return Promise.resolve('added');
   };
   // what the seller said about accidents, in a few words
   TMS.accidentText = function (l) {
@@ -770,6 +800,7 @@
   /* ---------- vehicles: plate, reminders, renewing after a job ---------- */
   TMS.PLATE_LETTERS = 'ABDEGHJKLNRSTUVXZ';      // the 17 Latin letters used on Saudi plates
   TMS.plate = function (v) {
+    if (!v.plateL) return 'Plate not added yet';
     return String(v.plateL || '').split('').join(' ') + ' · ' + String(v.plateN || '');
   };
   TMS.vehicleName = function (v) { return v.make + ' ' + v.model; };
@@ -976,7 +1007,7 @@
           job: 'Oil service', day: w[2], time: '8–10 am', place: 'Home', driver: null, status: 'waiting', created: c() }
       ],
       payments: [
-        { id: 'p1', receipt: 'TMS-1041', listingId: 'c9', car: '2020 Toyota Corolla', buyer: 'Ahmed Ali', seller: 'Hassan',
+        { id: 'p1', receipt: 'TMS-1041', listingId: 'c9', car: '2020 Toyota Corolla', buyer: 'Ahmed Ali', buyerEmail: A, seller: 'Hassan',
           amount: 1120, carPrice: 52000, kind: 'deposit', method: 'mada', date: TMS.fmt(TMS.addDays(t, -9)), status: 'paid', created: c() },
         { id: 'p2', receipt: 'TMS-1042', listingId: '', car: '2019 Kia Rio', buyer: 'Reem Saleh', seller: 'Bader',
           amount: 1120, carPrice: 36000, kind: 'deposit', method: 'Apple Pay', date: TMS.fmt(TMS.addDays(t, -3)), status: 'held', created: c() }

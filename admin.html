@@ -271,17 +271,16 @@
                '<td class="nowrap">' + esc(p.date) + '</td><td>' + st + '</td></tr>';
       }).join('') + '</tbody></table>';
   }
+  // the transfer is done in Absher: the deposit goes to the seller and the car moves to the buyer
   $('paymentsTable').addEventListener('click', function (e) {
     var b = e.target.closest('[data-release]');
-    if (!b) return;
-    var id = b.getAttribute('data-release'), all = TMS.load('payments');
-    all.forEach(function (p) { if (p.id === id) p.status = 'paid'; });
-    TMS.save('payments', all); refresh();
-    TMS.toast('The deposit is passed to the seller.', function () {
-      var again = TMS.load('payments');
-      again.forEach(function (p) { if (p.id === id) p.status = 'held'; });
-      TMS.save('payments', again); refresh();
-    });
+    if (!b || b.disabled) return;
+    b.disabled = true; b.textContent = 'Saving…';
+    TMS.completeTransfer(b.getAttribute('data-release')).then(function (result) {
+      refresh();
+      TMS.toast(result === 'paid' ? 'The deposit is passed to the seller.'
+        : 'Done. The deposit is passed to the seller, and the car is now in the buyer’s vehicles.');
+    }, function () { refresh(); });
   });
 
   function refresh() { renderTiles(); renderBookings(); renderListings(); renderUsers(); renderPayments(); }
