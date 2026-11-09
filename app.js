@@ -152,6 +152,29 @@
     }).observe(document.documentElement, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: TR_ATTRS });
   };
 
+  /* ---------- Arabic keyboards ----------
+     Digits typed as ٢٨٤٧ become 2847 at once, in every box except passwords.
+     Plate letters may be typed in Arabic: each one becomes its Latin letter, as printed on
+     Saudi plates. The Latin letters run in the opposite order (left to right), so we reverse them. */
+  TMS.westernDigits = function (s) {
+    return String(s).replace(/[٠-٩]/g, function (d) { return String(d.charCodeAt(0) - 0x0660); })
+                    .replace(/[۰-۹]/g, function (d) { return String(d.charCodeAt(0) - 0x06F0); });
+  };
+  var PLATE_AR = { 'ا': 'A', 'أ': 'A', 'إ': 'A', 'آ': 'A', 'ب': 'B', 'ح': 'J', 'د': 'D', 'ر': 'R', 'س': 'S', 'ص': 'X', 'ط': 'T',
+                   'ع': 'E', 'ق': 'G', 'ك': 'K', 'ل': 'L', 'م': 'Z', 'ن': 'N', 'ه': 'H', 'و': 'U', 'ى': 'V', 'ي': 'V' };
+  TMS.plateLetters = function (s) {
+    s = String(s || '').replace(/[\s\-.ـ]/g, '');
+    if (!/[\u0600-\u06FF]/.test(s)) return s.toUpperCase();
+    return s.split('').map(function (c) { return PLATE_AR[c] || c; }).reverse().join('').toUpperCase();
+  };
+  document.addEventListener('input', function (e) {
+    var el = e.target;
+    if (el.tagName !== 'INPUT' || el.type === 'password' || !/[٠-٩۰-۹]/.test(el.value)) return;
+    var at = el.selectionStart;
+    el.value = TMS.westernDigits(el.value);
+    try { el.setSelectionRange(at, at); } catch (err) {}
+  }, true);
+
   /* ---------- small helpers ---------- */
   var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   var MONTHS_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August',
@@ -826,9 +849,11 @@
     return out;
   };
   TMS.isDue = function (item) { return item.level !== 'green'; };
-  TMS.activeBooking = function (v, bookings) {
-    return (bookings || TMS.load('bookings')).filter(function (b) { return b.vehicleId === v.id && b.status !== 'done'; })[0] || null;
+  // a car can have more than one open request (for example the Fahas by a driver, the insurance online)
+  TMS.activeBookings = function (v, bookings) {
+    return (bookings || TMS.load('bookings')).filter(function (b) { return b.vehicleId === v.id && b.status !== 'done'; });
   };
+  TMS.activeBooking = function (v, bookings) { return TMS.activeBookings(v, bookings)[0] || null; };
   var RENEW = {
     Istimara: { years: 3, type: 'Istimara', detail: 'Renewed in Absher by the owner' },
     Fahas: { years: 1, type: 'Fahas', detail: 'Periodic inspection passed' },
@@ -992,7 +1017,7 @@
         listing('c2', 'Hyundai', 'Elantra', 2020, 85500, 48500, 'Jeddah', '#d5dde8', 'Noura', 'individual', 'live', 6, 'vovovoo', 'yes', 'Rear bumper replaced after a small accident in 2024.'),
         listing('c3', 'Toyota', 'Hilux', 2019, 121000, 72000, 'Yanbu', '#ffffff', 'Al-Bahar Logistics', 'company', 'live', 9, 'vvvvvvv'),
         listing('c4', 'Kia', 'Sportage', 2023, 21300, 98000, 'Riyadh', '#4a5668', 'Sara', 'individual', 'live', 1, 'vvvoooo'),
-        listing('c5', 'Honda', 'Accord', 2018, 141000, 39000, 'Madinah', '#d5dde8', 'Majed', 'individual', 'live', 14, 'ooooooo', 'unknown'),
+        listing('c5', 'Honda', 'Accord', 2018, 141000, 39000, 'Madinah', '#d5dde8', 'Majed', 'individual', 'live', 14, 'ooooooo', 'no'),
         listing('c6', 'Nissan', 'Patrol', 2022, 58000, 215000, 'Dammam', '#1c2430', 'Khalid', 'individual', 'live', 5, 'vvovvoo'),
         listing('c7', 'Mazda', '6', 2021, 54000, 63000, 'Jeddah', '#4a5668', 'Huda', 'individual', 'pending', 0, 'vvoovvo'),
         listing('c8', 'Ford', 'Taurus', 2017, 168000, 31000, 'Riyadh', '#d5dde8', 'Turki', 'individual', 'pending', 1, 'oooovoo', 'yes', 'Front-end accident in 2022, repaired at an agency.'),
@@ -1071,11 +1096,19 @@
       closeMenus(false);
       if (!wasOpen) {
         panel.hidden = false;
-        // keep the menu on the screen, whichever side of the bar the button is on
-        panel.style.left = ''; panel.style.right = '';
-        var box = panel.getBoundingClientRect();
-        if (box.left < 8) { panel.style.left = '0'; panel.style.right = 'auto'; }
-        else if (box.right > window.innerWidth - 8) { panel.style.right = '0'; panel.style.left = 'auto'; }
+        // keep the menu on the screen, in English (left to right) and Arabic (right to left)
+        ['position', 'left', 'right', 'top', 'width', 'maxHeight', 'overflowY'].forEach(function (k) { panel.style[k] = ''; });
+        if (window.innerWidth <= 760) {
+          // phone: the menu opens across the screen, 16px from each edge
+          var top = button.getBoundingClientRect().bottom + 8;
+          panel.style.position = 'fixed'; panel.style.left = '16px'; panel.style.right = '16px';
+          panel.style.top = top + 'px'; panel.style.width = 'auto';
+          panel.style.maxHeight = (window.innerHeight - top - 16) + 'px'; panel.style.overflowY = 'auto';
+        } else {
+          var box = panel.getBoundingClientRect();
+          if (box.left < 8) { panel.style.left = '0'; panel.style.right = 'auto'; }
+          else if (box.right > window.innerWidth - 8) { panel.style.right = '0'; panel.style.left = 'auto'; }
+        }
         button.setAttribute('aria-expanded', 'true');
         openMenu = { button: button, panel: panel };
         var first = panel.querySelector('input:checked, a, button');

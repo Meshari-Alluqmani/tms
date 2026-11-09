@@ -183,14 +183,14 @@
       <div class="platebox">
         <div>
           <label for="cPlateL" class="sublabel">Letters</label>
-          <input id="cPlateL" type="text" maxlength="5" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-describedby="cPlateHint cPlateError">
+          <input id="cPlateL" type="text" maxlength="7" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-describedby="cPlateHint cPlateError">
         </div>
         <div>
           <label for="cPlateN" class="sublabel">Numbers</label>
           <input id="cPlateN" type="text" inputmode="numeric" maxlength="4" autocomplete="off" aria-describedby="cPlateHint cPlateError">
         </div>
       </div>
-      <p class="hint" id="cPlateHint">3 letters and up to 4 numbers, for example A J K and 2847.</p>
+      <p class="hint" id="cPlateHint">3 letters and up to 4 numbers, for example A J K and 2847. You can type the letters in Arabic.</p>
       <p class="error" id="cPlateError" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg><span></span></p>
     </fieldset>
 
@@ -262,6 +262,11 @@
 
     <p class="willdo">We will:</p>
     <ul class="tasks" id="bookTasks"></ul>
+    <p class="hint" id="bookPickHint" hidden>Untick any job you want to do yourself or later.</p>
+    <p class="error" id="bookJobsError" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+      <span>Choose at least one job.</span>
+    </p>
 
     <fieldset class="field" id="dayField">
       <legend>Pickup day</legend>
@@ -326,7 +331,6 @@
       <div class="choicegrid">
         <span class="choice"><input class="sr-only" type="radio" name="accident" id="accNo" value="no"><label for="accNo">No</label></span>
         <span class="choice"><input class="sr-only" type="radio" name="accident" id="accYes" value="yes"><label for="accYes">Yes</label></span>
-        <span class="choice"><input class="sr-only" type="radio" name="accident" id="accUnknown" value="unknown"><label for="accUnknown">I don’t know</label></span>
       </div>
       <p class="hint" id="sellAccidentHint">Buyers always ask. An honest answer helps you sell faster.</p>
       <p class="error" id="sellAccidentError" hidden>
@@ -368,9 +372,9 @@
 <dialog id="sellMany" aria-labelledby="sellManyTitle">
   <form id="sellManyForm" class="dlg" novalidate>
     <h2 id="sellManyTitle">Sell vehicles</h2>
-    <p class="sub">Type a price for each vehicle and say if it had an accident. We fill in the rest from each record.</p>
+    <p class="sub">Type a price for each vehicle and say if it had an accident. We fill in the city from its location, and the rest from its record.</p>
     <table class="sellrows">
-      <thead><tr><th>Vehicle</th><th>Price and accident</th></tr></thead>
+      <thead><tr><th>Vehicle</th><th>Price, accident and city</th></tr></thead>
       <tbody id="sellManyRows"></tbody>
     </table>
     <p class="error" id="sellManyError" hidden>
@@ -444,8 +448,8 @@
   // reminders of one car: which are booked, which the owner will do, which are due
   function stateOf(v, bookings) {
     var items = TMS.items(v);
-    var booking = TMS.activeBooking(v, bookings);
-    var bookedJobs = booking ? (booking.jobs || [booking.job]) : [];
+    var open = TMS.activeBookings(v, bookings), booking = open[0] || null;
+    var bookedJobs = [].concat.apply([], open.map(function (b) { return b.jobs || [b.job]; }));
     var selfJobs = v.self ? v.self.jobs : [];
     items.forEach(function (it) {
       it.booked = bookedJobs.indexOf(it.what) > -1; it.mine = selfJobs.indexOf(it.what) > -1;
@@ -459,7 +463,7 @@
     var first = ist ? items.filter(function (it) {
       return (it.what === 'Fahas' || it.what === 'Insurance') && it.days <= ist.days;
     }) : [];
-    return { items: items, booking: booking, due: due, next: next, nextJob: nextJob, istimara: ist, first: first };
+    return { items: items, booking: booking, bookings: open, due: due, next: next, nextJob: nextJob, istimara: ist, first: first };
   }
   function phrase(it) {
     if (it.kind === 'km') return it.kmLeft <= 0 ? 'overdue by ' + TMS.km(-it.kmLeft) : 'due in ' + TMS.km(it.kmLeft);
@@ -541,32 +545,36 @@
     var main = jobFooter(v, st), ist = istimaraNote(v, st);
     return main && ist ? main + '<hr class="split">' + ist : main || ist;
   }
-  function jobFooter(v, st) {
-    if (st.booking) {
-      var b = st.booking, jobs = b.jobs || [b.job], cancel = '<button type="button" class="linkbtn" data-cancel="' + v.id + '">Cancel ' + (b.place === 'Online' ? 'request' : 'booking') + '</button>';
-      if (b.place === 'Online') {
+  // each open request: what happens, its status, and Cancel
+  function bookingBlock(b) {
+    var jobs = b.jobs || [b.job], cancel = '<button type="button" class="linkbtn" data-cancel="' + esc(b.id) + '">Cancel ' + (b.place === 'Online' ? 'request' : 'booking') + '</button>';
+    if (b.place === 'Online') {
         return '<div class="done">' + CHECK + '<div><p><b>Renewal requested.</b> We renew your insurance online and add the new policy to this car. No pickup is needed.</p>' +
                '<p class="bstatus">' + pill('amber', 'In progress') + '</p>' + cancel + '</div></div>';
-      }
-      var status = b.status === 'assigned' && b.driver
-        ? pill('blue', 'Driver: ' + esc(b.driver)) : pill('amber', 'Waiting for a driver');
-      return '<div class="done">' + CHECK + '<div><p><b>Driver booked.</b> We collect the car from your ' + esc(String(b.place).toLowerCase()) +
-             ' on ' + esc(b.day) + ', ' + esc(b.time) + ', and return it the same day.' +
-             (jobs.indexOf('Insurance') > -1 ? ' We renew the insurance online.' : '') + '</p>' +
-             '<p class="bstatus">' + status + '</p>' + cancel + '</div></div>';
     }
+    var status = b.status === 'assigned' && b.driver
+      ? pill('blue', 'Driver: ' + esc(b.driver)) : pill('amber', 'Waiting for a driver');
+    return '<div class="done">' + CHECK + '<div><p><b>Driver booked.</b> We collect the car from your ' + esc(String(b.place).toLowerCase()) +
+           ' on ' + esc(b.day) + ', ' + esc(b.time) + ', and return it the same day.' +
+           (jobs.indexOf('Insurance') > -1 ? ' We renew the insurance online.' : '') + '</p>' +
+           '<p class="bstatus">' + status + '</p>' + cancel + '</div></div>';
+  }
+  // the card footer shows every open request, the jobs the owner does, and what is still due
+  function jobFooter(v, st) {
+    var parts = st.bookings.map(bookingBlock);
     if (v.self && v.self.jobs.length) {
       var since = TMS.parseISO(v.self.since) || T;
-      return '<p class="ask"><b>You’re doing it yourself:</b> ' + esc(TMS.joinNames(v.self.jobs)) +
+      parts.push('<p class="ask"><b>You’re doing it yourself:</b> ' + esc(TMS.joinNames(v.self.jobs)) +
              '. We’ll check with you on ' + TMS.fmt(TMS.addDays(since, 7)) + '. Done it already?</p>' +
              '<div class="btns"><button type="button" class="btn" data-selfdone="' + v.id + '">Yes, it’s done</button>' +
-             '<button type="button" class="btn secondary" data-selfnot="' + v.id + '">Not yet</button></div>';
+             '<button type="button" class="btn secondary" data-selfnot="' + v.id + '">Not yet</button></div>');
     }
     if (st.due.length) {
-      return '<p class="ask">' + esc(askText(st.due)) + ' Who will do it?</p><div class="btns">' +
+      parts.push('<p class="ask">' + esc(askText(st.due)) + ' Who will do it?</p><div class="btns">' +
              '<button type="button" class="btn" data-handle="' + v.id + '">Handle it for me</button>' +
-             '<button type="button" class="btn secondary" data-self="' + v.id + '">I’ll do it myself</button></div>';
+             '<button type="button" class="btn secondary" data-self="' + v.id + '">I’ll do it myself</button></div>');
     }
+    if (parts.length) return parts.join('<hr class="split">');
     if (st.istimara) return '';                // only the Istimara is due: its note says it all
     var dates = st.items.filter(function (it) { return it.kind === 'date'; }).sort(function (a, b) { return a.days - b.days; });
     var nextDate = dates.length ? TMS.addDays(T, Math.max(dates[0].days - 30, 1)) : null;
@@ -629,7 +637,8 @@
   function doMyself(id) {
     var v = findVehicle(id); if (!v) return;
     var st = stateOf(v, TMS.load('bookings'));
-    v.self = { jobs: st.due.map(function (d) { return d.what; }), since: TMS.iso(T) };
+    var had = v.self && v.self.jobs ? v.self.jobs : [];
+    v.self = { jobs: had.concat(st.due.map(function (d) { return d.what; })), since: v.self && v.self.since || TMS.iso(T) };
     saveVehicle(v); renderAll(); focusIn(id, '[data-selfdone]');
   }
   function selfDone(id) {
@@ -655,10 +664,10 @@
     saveVehicle(v); renderAll(); focusIn(id, '[data-handle]');
     TMS.toast('OK. We’ll keep reminding you, and our driver can still do it for you.');
   }
-  function cancelBooking(id) {
-    var v = findVehicle(id); if (!v) return;
-    var all = TMS.load('bookings'), b = TMS.activeBooking(v, all);
+  function cancelBooking(bookingId) {
+    var all = TMS.load('bookings'), b = all.filter(function (x) { return x.id === bookingId; })[0];
     if (!b) return;
+    var id = b.vehicleId;
     TMS.save('bookings', all.filter(function (x) { return x.id !== b.id; }));
     renderAll(); focusIn(id, '[data-handle], .vfoot');
     TMS.toast(b.place === 'Online' ? 'Request cancelled.' : 'Booking cancelled.', function () {
@@ -774,19 +783,23 @@
     pending = list.map(function (v) { return { id: v.id, jobs: jobsFor(v, bookings) }; });
     opener = from;
     dlgForm.reset();                       // start from the defaults: the user can just press Confirm
-    // insurance only: we renew it online, so there is no pickup to choose
-    var online = pending.every(function (p) { return onlineOnly(p.jobs); });
-    $('dayField').hidden = online; $('timeField').hidden = online;
-    $('bookGo').textContent = online ? 'Confirm renewal' : 'Confirm booking';
+    $('bookJobsError').hidden = true;
+    $('bookPickHint').hidden = BIZ || pending[0].jobs.length < 2;
+    $('bookTasks').classList.toggle('pick', !BIZ && pending[0].jobs.length > 1);
     if (!BIZ) {
       var v = list[0];
-      $('bookTitle').textContent = online ? 'Renew the insurance online' : 'Book a driver';
       $('bookSub').textContent = TMS.vehicleName(v) + ' · ' + TMS.plate(v);
-      $('bookTasks').innerHTML = pending[0].jobs.map(function (j) { return '<li>' + (TASK[j] || j) + '</li>'; }).join('');
-      $('placeField').hidden = online;
-      $('bookCost').textContent = online ? 'Service fee SAR 30. The insurance price is charged at cost.'
-                                         : 'Service fee SAR 120. Government fees are charged at cost.';
+      // more than one job: each has a tick box (all ticked), so the owner can keep one for later
+      $('bookTasks').innerHTML = pending[0].jobs.length > 1
+        ? pending[0].jobs.map(function (j, n) {
+            return '<li><input type="checkbox" id="job' + n + '" value="' + esc(j) + '" checked><label for="job' + n + '">' + (TASK[j] || j) + '</label></li>';
+          }).join('')
+        : pending[0].jobs.map(function (j) { return '<li>' + (TASK[j] || j) + '</li>'; }).join('');
+      bookMode();
     } else {
+      var online = pending.every(function (p) { return onlineOnly(p.jobs); });
+      $('dayField').hidden = online; $('timeField').hidden = online;
+      $('bookGo').textContent = online ? 'Confirm renewal' : 'Confirm booking';
       $('bookTitle').textContent = online ? 'Renew insurance online' : list.length === 1 ? 'Book a driver' : 'Book drivers';
       $('bookSub').textContent = list.length + (list.length === 1 ? ' vehicle selected' : ' vehicles selected');
       $('bookTasks').innerHTML = list.map(function (v, i) {
@@ -797,13 +810,38 @@
     }
     dlg.showModal();
   }
+  // the jobs ticked in the dialog (one car)
+  function pickedJobs() {
+    var boxes = $('bookTasks').querySelectorAll('input[type=checkbox]');
+    if (!boxes.length) return pending[0].jobs;
+    return [].filter.call(boxes, function (b) { return b.checked; }).map(function (b) { return b.value; });
+  }
+  // insurance only: we renew it online, so there is no pickup to choose
+  function bookMode() {
+    var jobs = pickedJobs(), online = onlineOnly(jobs);
+    $('dayField').hidden = online; $('timeField').hidden = online; $('placeField').hidden = online;
+    $('bookTitle').textContent = online ? 'Renew the insurance online' : 'Book a driver';
+    $('bookGo').textContent = online ? 'Confirm renewal' : 'Confirm booking';
+    $('bookCost').textContent = online ? 'Service fee SAR 30. The insurance price is charged at cost.'
+                                       : 'Service fee SAR 120. Government fees are charged at cost.';
+  }
+  $('bookTasks').addEventListener('change', function () { if (!BIZ) { $('bookJobsError').hidden = true; bookMode(); } });
   dlgForm.addEventListener('submit', function (e) {
     e.preventDefault();
+    if (!BIZ) {
+      var jobs = pickedJobs();
+      if (!jobs.length) { $('bookJobsError').hidden = false; $('job0').focus(); return; }
+      pending[0].jobs = jobs;
+    }
     var day = dlgForm.elements.day.value, time = dlgForm.elements.time.value, place = dlgForm.elements.place.value;
     var online = pending.every(function (p) { return onlineOnly(p.jobs); });
     var all = TMS.load('bookings'), made = [];
     pending.forEach(function (p) {
-      var v = findVehicle(p.id); if (!v || TMS.activeBooking(v, all)) return;
+      var v = findVehicle(p.id); if (!v) return;
+      // never book a job twice: leave out jobs that already have an open request
+      var taken = [].concat.apply([], TMS.activeBookings(v, all).map(function (x) { return x.jobs || [x.job]; }));
+      p.jobs = p.jobs.filter(function (j) { return taken.indexOf(j) === -1; });
+      if (!p.jobs.length) return;
       var web = onlineOnly(p.jobs);
       var b = { id: TMS.uid('b'), owner: user.email, vehicleId: v.id, customer: user.company || user.name, car: TMS.vehicleName(v),
                 plate: TMS.plate(v), jobs: p.jobs, job: TMS.joinNames(p.jobs), day: web ? '' : day, time: web ? '' : time,
@@ -857,6 +895,7 @@
 
   function checkCar() {
     var e = {};
+    $('cPlateL').value = TMS.plateLetters($('cPlateL').value);     // Arabic letters → the Latin letters on the plate
     if (!clean('cMake')) e.cMake = 'Enter the make, for example Toyota.';
     if (!clean('cModel')) e.cModel = 'Enter the model, for example Camry.';
     if (!clean('cYear')) e.cYear = 'Choose the year.';
@@ -1035,6 +1074,12 @@
     else { box.hidden = true; input.removeAttribute('aria-invalid'); }
   }
 
+  var CITIES = ['Riyadh', 'Jeddah', 'Makkah', 'Madinah', 'Dammam', 'Yanbu'];
+  // "Jeddah branch" → Jeddah. No city name in the location: the seller chooses.
+  function cityFrom(v) {
+    var m = /(riyadh|jeddah|makkah|madinah|dammam|yanbu)/i.exec(v.location || '');
+    return m ? m[1].charAt(0).toUpperCase() + m[1].slice(1).toLowerCase() : '';
+  }
   function accidentChoice() { var r = sellForm.querySelector('input[name="accident"]:checked'); return r ? r.value : ''; }
   function setAccidentError(message) {
     var box = $('sellAccidentError');
@@ -1092,7 +1137,7 @@
     var p = parsePrice($('sellPrice').value);
     setPriceError($('sellPrice'), $('sellPriceError'), p.error || '');
     var acc = accidentChoice();
-    setAccidentError(acc ? '' : 'Choose No, Yes or I don’t know.');
+    setAccidentError(acc ? '' : 'Choose No or Yes.');
     if (p.error) { $('sellPrice').focus(); return; }
     if (!acc) { $('accNo').focus(); return; }
     if (photoBusy) { $('sellPhotosHint').textContent = 'One moment: the photo is still being prepared.'; return; }
@@ -1144,7 +1189,12 @@
              '<div class="prefix"><span>SAR</span><input id="mp' + k + '" type="text" inputmode="numeric" autocomplete="off"></div>' +
              '<label class="sr-only" for="ma' + k + '">Has ' + esc(TMS.plate(v)) + ' had an accident?</label>' +
              '<select id="ma' + k + '"><option value="">Accident? Choose…</option><option value="no">No accidents</option>' +
-             '<option value="yes">Had an accident</option><option value="unknown">I don’t know</option></select></td></tr>';
+             '<option value="yes">Had an accident</option></select>' +
+             // ---------- 4. the city buyers see, taken from the vehicle's location ----------
+             '<label class="sr-only" for="mc' + k + '">City of ' + esc(TMS.plate(v)) + '</label>' +
+             '<select id="mc' + k + '"><option value="">City? Choose…</option>' +
+             CITIES.map(function (c) { return '<option value="' + c + '"' + (c === cityFrom(v) ? ' selected' : '') + '>' + c + '</option>'; }).join('') +
+             '</select></td></tr>';
     }).join('');
     manyDlg.showModal();
     $('mp0').focus();
@@ -1159,6 +1209,9 @@
       var acc = $('ma' + k);
       if (!acc.value) { acc.setAttribute('aria-invalid', 'true'); if (!firstBad) firstBad = { input: acc, msg: 'Choose if it had an accident.', plate: TMS.plate(findVehicle(id)), acc: true }; }
       else acc.removeAttribute('aria-invalid');
+      var cityBox = $('mc' + k);
+      if (!cityBox.value) { cityBox.setAttribute('aria-invalid', 'true'); if (!firstBad) firstBad = { input: cityBox, msg: 'Choose the city.', plate: TMS.plate(findVehicle(id)), acc: true }; }
+      else cityBox.removeAttribute('aria-invalid');
     });
     if (firstBad) {
       var box = $('sellManyError');
@@ -1167,10 +1220,9 @@
       firstBad.input.focus();
       return;
     }
-    var cityOf = function (v) { var m = /(Riyadh|Jeddah|Makkah|Madinah|Dammam|Yanbu)/i.exec(v.location || ''); return m ? cap(m[1].toLowerCase()) : 'Yanbu'; };
     var ids = manyIds.map(function (id, k) {
       var v = findVehicle(id);
-      return addListing(v, prices[k], cityOf(v), $('sellManyHandle').checked, '', $('ma' + k).value, '');
+      return addListing(v, prices[k], $('mc' + k).value, $('sellManyHandle').checked, '', $('ma' + k).value, '');
     });
     selected = {};
     manyOpener = null;

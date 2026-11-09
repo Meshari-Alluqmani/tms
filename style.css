@@ -561,7 +561,12 @@ dialog::backdrop{ background:var(--overlay) }
 .dlg{ padding:26px }
 .dlg .sub{ margin-top:4px; color:var(--muted) }
 .dlg .willdo{ margin-top:16px; font-size:var(--fs-4); font-weight:var(--bold); color:var(--muted) }
-.dlg .tasks{ margin:6px 0 0; padding:12px 14px 12px 34px; background:var(--page); border-radius:var(--radius) }
+.dlg .tasks{ margin:6px 0 0; padding-block:12px; padding-inline:34px 14px; background:var(--page); border-radius:var(--radius) }
+.dlg .tasks.pick{ list-style:none; padding-inline:14px; display:grid; gap:10px }
+.dlg .tasks.pick li{ display:flex; gap:10px; align-items:center; margin:0 }
+.dlg .tasks.pick input{ width:22px; height:22px; flex:none; margin:0; accent-color:var(--accent) }
+.dlg .tasks.pick label{ cursor:pointer; min-height:32px; display:flex; align-items:center }
+#bookPickHint, #bookJobsError{ margin:8px 0 0 }
 .dlg .tasks li + li{ margin-top:4px }
 .dlg .cost{ margin-top:18px; padding-top:14px; border-top:1px solid var(--line); font-size:var(--fs-4); color:var(--muted) }
 .dlg .actions{ display:flex; flex-wrap:wrap; gap:10px; margin-top:22px }
@@ -608,7 +613,7 @@ dialog::backdrop{ background:var(--overlay) }
 .sellrows th, .sellrows td{ padding:8px 10px }
 .sellrows td input{ min-height:44px; font-size:var(--fs-4); padding:8px 10px }
 .sellrows .prefix span{ padding:0 10px }
-.sellrows td select{ margin-top:6px; width:100%; min-width:0 }
+.sellrows td select{ margin-top:6px; width:100%; min-width:0; display:block }
 textarea{ resize:vertical; min-height:72px; line-height:1.45 }
 
 /* =========================================================
